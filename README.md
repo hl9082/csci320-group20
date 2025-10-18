@@ -51,7 +51,7 @@ CSCI320-Group20/
         ```
 
 3.  **Install Dependencies**
-    -   Navigate to the `music_app` directory in your terminal.
+    -   Navigate to the `root` directory in your terminal.
     -   Install or upgrade the required packages using the `requirements.txt` file:
         ```bash
         pip install --upgrade -r src/requirements.txt
