@@ -29,7 +29,7 @@ def create_user(username, password, first_name, last_name, email):
     Returns: new user's id; None if the username or email already exists.
     '''
     now = datetime.now()
-    sql = 'INSERT INTO "USER"(Username, Password, FirstName, LastName, Email, CreationDate, LastAccessDate) VALUES(%s, %s, %s, %s, %s, %s, %s) RETURNING UserID'
+    sql = 'INSERT INTO USER(Username, Password, FirstName, LastName, Email, CreationDate, LastAccessDate) VALUES(%s, %s, %s, %s, %s, %s, %s) RETURNING UserID'
     try:
         with get_db_connection() as conn, conn.cursor() as curs:
             curs.execute(sql, (username, password, first_name, last_name, email, now, now))
@@ -54,8 +54,8 @@ def login_user(username, password):
     Returns: user, None if login fails.
     '''
     
-    sql_select = 'SELECT UserID, Username FROM "USER" WHERE Username = %s AND Password = %s'
-    sql_update = 'UPDATE "USER" SET LastAccessDate = %s WHERE UserID = %s'
+    sql_select = 'SELECT UserID, Username FROM USER WHERE Username = %s AND Password = %s'
+    sql_update = 'UPDATE USER SET LastAccessDate = %s WHERE UserID = %s'
     now = datetime.now()
     try:
         with get_db_connection() as conn, conn.cursor() as curs:
