@@ -45,10 +45,10 @@ def run_diagnostic():
             with psycopg.connect(**params) as conn:
                 with conn.cursor() as curs:
                     # Query the table to get its structure
-                    curs.execute('SELECT * FROM "user" LIMIT 1;')
+                    curs.execute('SELECT * FROM user LIMIT 1;')
                     
                     if curs.description is None:
-                        print('Could not find the "user" table or it is empty.')
+                        print('Could not find the user table or it is empty.')
                         return
                         
                     # Get column names from the cursor description
