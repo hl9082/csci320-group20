@@ -1,52 +1,33 @@
-# src/backend.py
 '''
 Author: Huy Le (hl9082)
-Description: this is for sign up, log in, and collection display.
+Co-authors: Jason Ting, Iris Li, Raymond Lee
+ Group: 20
+ Course: CSCI 320
+ Filename: backend.py
+Description: 
+This module contains all the functions that interact with the database.
+          It serves as the data access layer, separating SQL logic from the
+          web application's routing logic.
 '''
 import psycopg
-from psycopg.rows import dict_row
-from sshtunnel import SSHTunnelForwarder
 from datetime import datetime
-from contextlib import contextmanager
-import os
-from dotenv import load_dotenv, find_dotenv
-
-# Find and load environment variables from .env file in the parent directory
-load_dotenv(find_dotenv())
-
-CS_USERNAME = os.getenv("CS_USERNAME")
-CS_PASSWORD = os.getenv("CS_PASSWORD")
-DB_NAME = os.getenv("DB_NAME")
-
-@contextmanager
-def get_db_connection():
-    """A context manager to handle the SSH tunnel and DB connection lifecycle."""
-    if not all([CS_USERNAME, CS_PASSWORD, DB_NAME]):
-        raise ConnectionError("Missing database credentials. Please check your .env file.")
-
-    server = SSHTunnelForwarder(
-        ('starbug.cs.rit.edu', 22),
-        ssh_username=CS_USERNAME,
-        ssh_password=CS_PASSWORD,
-        remote_bind_address=('127.0.0.1', 5432)
-    )
-    conn = None
-    try:
-        server.start()
-        params = {
-            'dbname': DB_NAME, 'user': CS_USERNAME, 'password': CS_PASSWORD,
-            'host': 'localhost', 'port': server.local_bind_port
-        }
-        conn = psycopg.connect(**params)
-        conn.row_factory = dict_row
-        yield conn
-    finally:
-        if conn:
-            conn.close()
-        server.stop()
+# Import the single, authoritative connection function from the connector module
+from db_connector import get_db_connection
 
 # --- User Management ---
 def create_user(username, password, first_name, last_name, email):
+    '''
+    Create a new user in the database.
+    
+    Parameters:
+    - username (str): user's username.
+    - password (str): the user's password.
+    - first_name (str): the user's first name.
+    - last_name (str): the user's last name.
+    - email (str): the user's email.
+    
+    Returns: new user's id; None if the username or email already exists.
+    '''
     now = datetime.now()
     sql = 'INSERT INTO "USER"(Username, Password, FirstName, LastName, Email, CreationDate, LastAccessDate) VALUES(%s, %s, %s, %s, %s, %s, %s) RETURNING UserID'
     try:
@@ -57,8 +38,22 @@ def create_user(username, password, first_name, last_name, email):
             return user_id
     except psycopg.errors.UniqueViolation:
         return None
+    except (psycopg.Error, ConnectionError) as e:
+        print(f"Error creating user: {e}")
+        return None
 
 def login_user(username, password):
+    
+    '''
+    Login with an existing username and password.
+    
+    Parameters:
+    - username (str): the username.
+    - password (str): the password.
+    
+    Returns: user, None if login fails.
+    '''
+    
     sql_select = 'SELECT UserID, Username FROM "USER" WHERE Username = %s AND Password = %s'
     sql_update = 'UPDATE "USER" SET LastAccessDate = %s WHERE UserID = %s'
     now = datetime.now()
@@ -70,12 +65,27 @@ def login_user(username, password):
                 curs.execute(sql_update, (now, user['userid']))
                 conn.commit()
                 return user
-    except Exception:
+    except (psycopg.Error, ConnectionError) as e:
+        print(f"Login failed due to a database error: {e}")
         return None
 
 # --- Collection Management ---
 def get_user_collections(user_id):
+    
+    '''
+    This function gets user's collection.
+    
+    Parameter:
+    - user_id (int): the user's id.
+    
+    Returns: list of songs from collection, and empty list if error.
+    '''
+    
     sql = "SELECT Title, NumberOfSongs, Length FROM COLLECTION WHERE UserID = %s ORDER BY Title ASC"
-    with get_db_connection() as conn, conn.cursor() as curs:
-        curs.execute(sql, (user_id,))
-        return curs.fetchall()
+    try:
+        with get_db_connection() as conn, conn.cursor() as curs:
+            curs.execute(sql, (user_id,))
+            return curs.fetchall()
+    except (psycopg.Error, ConnectionError) as e:
+        print(f"Failed to get collections due to a database error: {e}")
+        return [] # Return an empty list on error
