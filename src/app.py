@@ -1,7 +1,14 @@
 # src/app.py
 '''
 Author: Huy Le (hl9082)
-Description: This is the main program.
+Co-authors: Jason Ting, Iris Li, Raymond Lee
+ Group: 20
+ Course: CSCI 320
+ Filename: app.py
+Description: 
+This is the main Flask web application file. It defines the web routes
+(URLs), handles user requests, interacts with the backend to fetch data,
+          and renders the HTML templates to display to the user.
 '''
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 import backend # Direct import since they are in the same package
@@ -21,10 +28,18 @@ if not all([os.getenv("CS_USERNAME"), os.getenv("CS_PASSWORD"), os.getenv("DB_NA
     exit()
 
 def is_logged_in():
+    '''
+    Check if we're logged in.
+    Returns: True if user_id is in session, and false if otherwise.
+    '''
     return 'user_id' in session
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
+    '''
+    Login operation.
+    Return: redirection to dashboard if already logged in. Else, render template for login.html.
+    '''
     if is_logged_in():
         return redirect(url_for('dashboard'))
     if request.method == 'POST':
@@ -40,6 +55,10 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    '''
+    Register operation.
+    Returns: redirect to dashboard if already logged in. Else, render template for register.html
+    '''
     if is_logged_in():
         return redirect(url_for('dashboard'))
     if request.method == 'POST':
@@ -57,12 +76,20 @@ def register():
 
 @app.route('/logout')
 def logout():
+    '''
+    Logout operation.
+    Returns: redirection to login.
+    '''
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
 @app.route('/dashboard')
 def dashboard():
+    '''
+    Route to dashboard.
+    Returns: redirection to login if not logged in. Else, redirect to dashboard page.
+    '''
     if not is_logged_in():
         return redirect(url_for('login'))
     collections = backend.get_user_collections(session['user_id'])
@@ -70,6 +97,10 @@ def dashboard():
 
 @app.route('/collections')
 def collections():
+    '''
+    Route to collections page.
+    Returns: redirection to login if not logged in. Else, redirect to collections page.
+    '''
     if not is_logged_in():
         return redirect(url_for('login'))
     user_collections = backend.get_user_collections(session['user_id'])
@@ -77,6 +108,10 @@ def collections():
 
 @app.route('/search')
 def search():
+    '''
+    Route to search page.
+    Returns: redirection to login if not logged in. Else, redirect to search page.
+    '''
     if not is_logged_in():
         return redirect(url_for('login'))
     return render_template('search.html')
