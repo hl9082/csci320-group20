@@ -29,7 +29,7 @@ def create_user(username, password, first_name, last_name, email):
     Returns: new user's id; None if the username or email already exists.
     '''
     now = datetime.now()
-    sql = 'INSERT INTO user(Username, Password, FirstName, LastName, Email, CreationDate, LastAccessDate) VALUES(%s, %s, %s, %s, %s, %s, %s) RETURNING UserID'
+    sql = 'INSERT INTO user(username, password, firstname, lastname, email, creationdate, lastaccessdate) VALUES(%s, %s, %s, %s, %s, %s, %s) RETURNING userid'
     try:
         with get_db_connection() as conn, conn.cursor() as curs:
             curs.execute(sql, (username, password, first_name, last_name, email, now, now))
@@ -80,8 +80,8 @@ def get_user_collections(user_id):
     
     Returns: list of songs from collection, and empty list if error.
     '''
-   
-    sql = 'SELECT Title, NumberOfSongs, Length FROM collection WHERE UserID = %s ORDER BY Title ASC'
+  
+    sql = 'SELECT title, numberofsongs, length FROM collection WHERE userid = %s ORDER BY title ASC'
     try:
         with get_db_connection() as conn, conn.cursor() as curs:
             curs.execute(sql, (user_id,))
