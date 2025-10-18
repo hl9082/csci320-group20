@@ -1,5 +1,5 @@
 '''
- Author: Huy Le
+ Author: Huy Le (hl9082)
  Co-authors: Jason Ting, Iris Li, Raymond Lee
  Group: 20
  Course: CSCI 320
