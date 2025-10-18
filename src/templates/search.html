@@ -1,0 +1,10 @@
+{% extends "layout.html" %}
+{% block title %}Search Songs{% endblock %}
+{% block content %}
+    <h1>Search for Songs</h1>
+    <form method="GET" action="{{ url_for('search') }}">
+        <input type="text" name="term" placeholder="Enter search term..." required>
+        <button type="submit" class="btn">Search</button>
+    </form>
+
+    {% endblock %}
