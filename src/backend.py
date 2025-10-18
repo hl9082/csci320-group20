@@ -29,7 +29,7 @@ def create_user(username, password, first_name, last_name, email):
     Returns: new user's id; None if the username or email already exists.
     '''
     now = datetime.now()
-    sql = 'INSERT INTO "USER"(Username, Password, FirstName, LastName, Email, CreationDate, LastAccessDate) VALUES(%s, %s, %s, %s, %s, %s, %s) RETURNING UserID'
+    sql = 'INSERT INTO user(Username, Password, FirstName, LastName, Email, CreationDate, LastAccessDate) VALUES(%s, %s, %s, %s, %s, %s, %s) RETURNING UserID'
     try:
         with get_db_connection() as conn, conn.cursor() as curs:
             curs.execute(sql, (username, password, first_name, last_name, email, now, now))
@@ -54,8 +54,8 @@ def login_user(username, password):
     Returns: user, None if login fails.
     '''
     
-    sql_select = 'SELECT userid, username FROM "USER" WHERE username = %s AND password = %s'
-    sql_update = 'UPDATE "USER" SET lastaccessdate = %s WHERE userid = %s'
+    sql_select = 'SELECT userid, username FROM user WHERE username = %s AND password = %s'
+    sql_update = 'UPDATE user SET lastaccessdate = %s WHERE userid = %s'
     now = datetime.now()
     try:
         with get_db_connection() as conn, conn.cursor() as curs:
@@ -80,8 +80,8 @@ def get_user_collections(user_id):
     
     Returns: list of songs from collection, and empty list if error.
     '''
-    
-    sql = 'SELECT Title, NumberOfSongs, Length FROM "COLLECTION" WHERE UserID = %s ORDER BY Title ASC'
+   
+    sql = 'SELECT Title, NumberOfSongs, Length FROM collection WHERE UserID = %s ORDER BY Title ASC'
     try:
         with get_db_connection() as conn, conn.cursor() as curs:
             curs.execute(sql, (user_id,))
