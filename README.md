@@ -6,40 +6,65 @@ Members:
 - Iris Li
 - Raymond Lee
 
+## Project structure
+CSCI320-Group20/
+├── src/
+│   ├── app.py
+│   ├── backend.py
+│   ├── db_connector.py
+│   ├── requirements.txt
+│   └── templates/
+│       └── ... (HTML files)
+├── .env
+├── .gitignore
+└── README.md
+
+## Features
+
+-   User account creation and login against the remote database.
+-   Create, view, rename, and delete music collections.
+-   Search for songs by title, artist, album, or genre.
+-   Sort search results.
+-   Simulate playing songs and entire collections, with play counts recorded.
+
 ## Setup and Installation
 
 ### Prerequisites
 
 -   Python 3.6+
 -   `pip` (Python package installer)
--   Your RIT CS username, password, and database name.
+-   Your RIT CS username and password.
+-   An existing, populated `ps320_20` database on `starbug.cs.rit.edu`.
 
 ### Instructions
 
 1.  **Save Project Files**
     -   Create the directory structure as shown above and save all the provided files.
 
-2.  **Enter Your Credentials**
-    -   Open the `.env` file.
-    -   Fill in the `CS_USERNAME`, `CS_PASSWORD`, and `DB_NAME` variables with your RIT CS credentials.
-
-3.  **Install Dependencies**
-    -   Navigate to the `src` directory in your terminal.
-    -   Install the required packages using the `requirements.txt` file:
-        ```bash
-        pip install -r requirements.txt
+2.  **Create and Configure the `.env` File**
+    -   In the src directory, create a file named `.env`.
+    -   Open the file and add your credentials for the `ps320_20` database:
+        ```env
+        CS_USERNAME="YOUR_CS_USERNAME"
+        CS_PASSWORD="YOUR_CS_PASSWORD"
+        DB_NAME="ps320_20"
         ```
 
-4.  **Initialize the Database**
-    -   Run the setup script. This command will connect to `starbug.cs.rit.edu`, drop any existing tables, create the new schema, and populate it with sample data in your remote PostgreSQL database.
-        
-        python database_setup.py
-        
+3.  **Install Dependencies**
+    -   Navigate to the `music_app` directory in your terminal.
+    -   Install or upgrade the required packages using the `requirements.txt` file:
+        ```bash
+        pip install --upgrade -r src/requirements.txt
+        ```
 
-5.  **Run the Application**
-    -   Start the Flask web server:python src/app.py
-        
+4.  **Run the Application**
+    -   Start the Flask web server. It will connect to your existing database.
+        ```bash
+        cd src
+        python app.py
+        ```
 
-6.  **Access the Application**
+5.  **Access the Application**
     -   Open your web browser and navigate to:
         [http://127.0.0.1:5000](http://127.0.0.1:5000)
+    -   You can now log in with the user data present in your remote database.
