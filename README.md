@@ -34,7 +34,7 @@ CSCI320-Group20/
 -   Python 3.6+
 -   `pip` (Python package installer)
 -   Your RIT CS username and password.
--   An existing, populated `ps320_20` database on `starbug.cs.rit.edu`.
+-   An existing, populated `p320_20` database on `starbug.cs.rit.edu`.
 
 ### Instructions
 
@@ -43,11 +43,11 @@ CSCI320-Group20/
 
 2.  **Create and Configure the `.env` File**
     -   In the src directory, create a file named `.env`.
-    -   Open the file and add your credentials for the `ps320_20` database:
+    -   Open the file and add your credentials for the `p320_20` database:
         ```env
         CS_USERNAME="YOUR_CS_USERNAME"
         CS_PASSWORD="YOUR_CS_PASSWORD"
-        DB_NAME="ps320_20"
+        DB_NAME="p320_20"
         ```
 
 3.  **Install Dependencies**
