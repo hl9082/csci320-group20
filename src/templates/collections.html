@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block title %}My Collections{% endblock %}
+{% block content %}
+    <h1>Manage My Collections</h1>
+    {% if collections %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Songs</th>
+                <th>Duration (min)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for collection in collections %}
+            <tr>
+                <td>{{ collection.title }}</td>
+                <td>{{ collection.numberofsongs }}</td>
+                <td>{{ (collection.length / 60) | round(2) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>You have no collections yet.</p>
+    {% endif %}
+{% endblock %}
