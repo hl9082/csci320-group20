@@ -20,11 +20,11 @@ Members:
     -   Create the directory structure as shown above and save all the provided files.
 
 2.  **Enter Your Credentials**
-    -   Open the `src/config.py` file.
+    -   Open the `.env` file.
     -   Fill in the `CS_USERNAME`, `CS_PASSWORD`, and `DB_NAME` variables with your RIT CS credentials.
 
 3.  **Install Dependencies**
-    -   Navigate to the `music_app` directory in your terminal.
+    -   Navigate to the `src` directory in your terminal.
     -   Install the required packages using the `requirements.txt` file:
         ```bash
         pip install -r requirements.txt
@@ -32,15 +32,13 @@ Members:
 
 4.  **Initialize the Database**
     -   Run the setup script. This command will connect to `starbug.cs.rit.edu`, drop any existing tables, create the new schema, and populate it with sample data in your remote PostgreSQL database.
-        ```bash
+        
         python database_setup.py
-        ```
+        
 
 5.  **Run the Application**
-    -   Start the Flask web server:
-        ```bash
-        python src/app.py
-        ```
+    -   Start the Flask web server:python src/app.py
+        
 
 6.  **Access the Application**
     -   Open your web browser and navigate to:
