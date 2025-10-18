@@ -54,8 +54,8 @@ def login_user(username, password):
     Returns: user, None if login fails.
     '''
     
-    sql_select = 'SELECT Username FROM USER WHERE Username = %s AND Password = %s'
-    sql_update = 'UPDATE USER SET LastAccessDate = %s WHERE UserID = %s'
+    sql_select = 'SELECT userid, username FROM user WHERE username = %s AND password = %s'
+    sql_update = 'UPDATE user SET lastaccessdate = %s WHERE userid = %s'
     now = datetime.now()
     try:
         with get_db_connection() as conn, conn.cursor() as curs:
