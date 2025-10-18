@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+    <h1>Welcome, {{ session.username }}!</h1>
+
+    <h2>My Collections</h2>
+    {% if collections %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Songs</th>
+                <th>Duration (min)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for collection in collections %}
+            <tr>
+                <td>{{ collection.title }}</td>
+                <td>{{ collection.numberofsongs }}</td>
+                <td>{{ (collection.length / 60) | round(2) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>You have no collections yet. <a href="{{ url_for('collections') }}">Create one!</a></p>
+    {% endif %}
+{% endblock %}
