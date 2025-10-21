@@ -11,104 +11,96 @@ This module contains all the functions that interact with the database.
 '''
 import bcrypt
 from datetime import datetime
-# Import the single, authoritative connection function from the connector module
+from sqlalchemy import text
 from db_connector import get_db_connection
-import psycopg
+import psycopg # Still needed for catching specific psycopg errors
 
 # --- User Management ---
 
 def create_user(username, password, first_name, last_name, email):
     """
-    Creates a new user with a securely hashed password.
-    This function is unchanged and remains secure for all new registrations.
+    Creates a new user with a securely hashed password using SQLAlchemy.
     """
-    # Hash the password using bcrypt
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     now = datetime.now()
-    sql = """
+    sql = text("""
         INSERT INTO "user"(username, password, firstname, lastname, email, creationdate, lastaccessdate)
-        VALUES(%s, %s, %s, %s, %s, %s, %s)
+        VALUES(:username, :password, :first_name, :last_name, :email, :now, :now)
         RETURNING userid
-    """
+    """)
     try:
         with get_db_connection() as conn:
-            with conn.cursor() as curs:
-                # Store the hashed password (as a string) in the database
-                curs.execute(sql, (hashed_password.decode('utf-8'), first_name, last_name, email, now, now))
-                user_id = curs.fetchone()['userid']
-                conn.commit()
-                return user_id
+            params = {
+                "username": username, "password": hashed_password.decode('utf-8'),
+                "first_name": first_name, "last_name": last_name,
+                "email": email, "now": now
+            }
+            result = conn.execute(sql, params)
+            user_id = result.scalar_one()
+            conn.commit()
+            return user_id
     except psycopg.errors.UniqueViolation:
-        # This will be caught if the username or email is not unique
         return None
-    except (psycopg.Error, ConnectionError) as e:
+    except Exception as e:
         print(f"Error creating user: {e}")
         return None
 
 def login_user(username, password):
     """
-    Logs a user in, seamlessly upgrading their password from plaintext to a hash if needed.
+    Logs a user in using SQLAlchemy, with on-the-fly password migration.
     """
-    sql_select = 'SELECT userid, username, password FROM "user" WHERE username = %s'
-    sql_update_access = 'UPDATE "user" SET lastaccessdate = %s WHERE userid = %s'
-    sql_update_password = 'UPDATE "user" SET password = %s, lastaccessdate = %s WHERE userid = %s'
+    sql_select = text('SELECT userid, username, password FROM "user" WHERE username = :username')
+    sql_update_access = text('UPDATE "user" SET lastaccessdate = :now WHERE userid = :userid')
+    sql_update_password = text('UPDATE "user" SET password = :new_hash, lastaccessdate = :now WHERE userid = :userid')
     now = datetime.now()
 
     try:
         with get_db_connection() as conn:
-            with conn.cursor() as curs:
-                curs.execute(sql_select, (username,))
-                user_record = curs.fetchone()
+            result = conn.execute(sql_select, {"username": username})
+            # .mappings().first() provides a dictionary-like row object
+            user_record = result.mappings().first()
 
-                if not user_record:
-                    return None  # User not found
+            if not user_record:
+                return None
 
-                stored_password = user_record['password']
+            stored_password = user_record['password']
+            is_hashed = stored_password.startswith('$2b$')
 
-                # A valid bcrypt hash will start with a signature like '$2b$'. Plaintext won't.
-                is_hashed = stored_password.startswith('$2b$')
-
-                if is_hashed:
-                    # --- Path 1: Secure Hash ---
-                    # The stored password is a hash, so we use bcrypt to check.
-                    if bcrypt.checkpw(password.encode('utf-8'), stored_password.encode('utf-8')):
-                        curs.execute(sql_update_access, (now, user_record['userid']))
-                        conn.commit()
-                        return {'userid': user_record['userid'], 'username': user_record['username']}
-                    else:
-                        return None  # Incorrect password
+            if is_hashed:
+                if bcrypt.checkpw(password.encode('utf-8'), stored_password.encode('utf-8')):
+                    conn.execute(sql_update_access, {"now": now, "userid": user_record['userid']})
+                    conn.commit()
+                    return {'userid': user_record['userid'], 'username': user_record['username']}
                 else:
-                    # --- Path 2: Plaintext Password (Lazy Migration) ---
-                    # The stored password is plaintext. We compare it directly.
-                    if stored_password == password:
-                        # The password is correct. Now, UPGRADE it to a secure hash.
-                        print(f"NOTICE: Upgrading plaintext password for user: {username}")
-                        new_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                        curs.execute(sql_update_password, (new_hash, now, user_record['userid']))
-                        conn.commit()
-                        print(f"SUCCESS: Password for user '{username}' has been securely upgraded.")
-                        return {'userid': user_record['userid'], 'username': user_record['username']}
-                    else:
-                        return None  # Incorrect password
-
-    except (psycopg.Error, ConnectionError) as e:
+                    return None
+            else:
+                if stored_password == password:
+                    print(f"NOTICE: Upgrading plaintext password for user: {username}")
+                    new_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                    conn.execute(sql_update_password, {
+                        "new_hash": new_hash,
+                        "now": now,
+                        "userid": user_record['userid']
+                    })
+                    conn.commit()
+                    print(f"SUCCESS: Password for user '{username}' has been securely upgraded.")
+                    return {'userid': user_record['userid'], 'username': user_record['username']}
+                else:
+                    return None
+    except Exception as e:
         print(f"Login failed due to a database error: {e}")
-        return None
-    except ValueError as e:
-        print(f"A password check failed unexpectedly: {e}")
         return None
 
 # --- Collection Management ---
 def get_user_collections(user_id):
     """
-    Gets a user's collections. This function is unchanged.
+    Gets a user's collections using SQLAlchemy.
     """
-    sql = 'SELECT title, numberofsongs, length FROM "collection" WHERE userid = %s ORDER BY title ASC'
+    sql = text('SELECT title, numberofsongs, length FROM "collection" WHERE userid = :user_id ORDER BY title ASC')
     try:
         with get_db_connection() as conn:
-            with conn.cursor() as curs:
-                curs.execute(sql, (user_id,))
-                return curs.fetchall()
-    except (psycopg.Error, ConnectionError) as e:
+            result = conn.execute(sql, {"user_id": user_id})
+            return result.mappings().all()
+    except Exception as e:
         print(f"Failed to get collections due to a database error: {e}")
         return []
