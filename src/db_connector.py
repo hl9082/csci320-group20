@@ -14,7 +14,7 @@
 import os
 import atexit
 import psycopg
-# --- FIX: Use the correct pooling library ---
+# Use the correct, modern pooling library
 from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
 from sshtunnel import SSHTunnelForwarder
@@ -32,7 +32,7 @@ DB_NAME = os.getenv("DB_NAME")
 server = None
 db_pool = None
 
-# This block ensures the tunnel and pool are created only once by the main process.
+# This block ensures the tunnel and pool are created only once by the main Flask process.
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") == "production":
     if not all([CS_USERNAME, CS_PASSWORD, DB_NAME]):
         raise ConnectionError("Missing database credentials. Please check your .env file.")
@@ -52,20 +52,20 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
 
         print("Creating database connection pool...")
 
-        # --- FINAL FIX for Pool Syntax ---
-        # This now uses the correct psycopg_pool.ConnectionPool syntax
-        # with keyword arguments as you provided.
+        # --- CORRECTED CONNINFO URI ---
+        # As per your documentation, the conninfo must be a URI string.
+        conninfo_uri = (
+            f"postgresql://{CS_USERNAME}:{CS_PASSWORD}@localhost:{server.local_bind_port}/{DB_NAME}"
+        )
+
         db_pool = ConnectionPool(
+            conninfo=conninfo_uri,
             min_size=1,
             max_size=10,
-            open=True,
-            # Connection parameters passed as keyword arguments
-            user=CS_USERNAME,
-            password=CS_PASSWORD,
-            host='localhost',
-            dbname=DB_NAME,
-            port=server.local_bind_port,
-            row_factory=dict_row
+            # Pass connection-specific arguments like row_factory in kwargs
+            kwargs={
+                'row_factory': dict_row
+            }
         )
         print("Database connection pool created successfully.")
 
@@ -95,11 +95,10 @@ def get_db_connection():
     if not db_pool:
         raise ConnectionError("Database connection pool is not available. Check startup logs for errors.")
 
-    conn = None
     try:
+        # The 'with' statement handles getting a connection and returning it to the pool
         with db_pool.connection() as conn:
             yield conn
     except Exception as e:
-        # It's useful to know if getting a connection fails
         print(f"Error getting connection from pool: {e}")
         raise
