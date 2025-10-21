@@ -13,7 +13,8 @@
 
 import os
 import atexit
-import time  # Import the time module
+import time
+import socket # Import the socket module
 import psycopg
 from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
@@ -50,11 +51,27 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
         server.start()
         print(f"SSH tunnel established on local port {server.local_bind_port}.")
 
-        # --- FIX: Wait for the tunnel to stabilize before connecting ---
-        # This small delay prevents the race condition with the connection pool.
-        print("Waiting 1 second for tunnel to stabilize...")
-        time.sleep(1)
+        # --- FIX: Actively probe the tunnel port to ensure it's ready ---
+        print("Waiting for tunnel to become ready...")
+        tunnel_ready = False
+        wait_start_time = time.monotonic()
+        wait_timeout = 15  # seconds
 
+        while time.monotonic() - wait_start_time < wait_timeout:
+            try:
+                # Attempt to create a brief connection to the tunnel's local port
+                with socket.create_connection(('127.0.0.1', server.local_bind_port), timeout=1):
+                    tunnel_ready = True
+                    print("Tunnel is ready and accepting connections.")
+                    break
+            except (ConnectionRefusedError, socket.timeout):
+                # Port is not open yet, wait a moment and retry
+                time.sleep(0.2)
+        
+        if not tunnel_ready:
+            raise ConnectionError(f"SSH tunnel failed to become ready on port {server.local_bind_port} within {wait_timeout} seconds.")
+
+        # --- Proceed only after tunnel is confirmed to be ready ---
         print("Creating database connection pool...")
         conninfo_uri = (
             f"postgresql://{CS_USERNAME}:{CS_PASSWORD}@localhost:{server.local_bind_port}/{DB_NAME}"
@@ -67,8 +84,8 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
         )
         print("Database connection pool created.")
 
-        # Verify the pool can connect before proceeding
-        print("Checking pool health and establishing initial connection...")
+        # Final verification
+        print("Checking pool health...")
         db_pool.check()
         print("Database connection pool is healthy and ready.")
 
@@ -103,6 +120,8 @@ def get_db_connection():
     except Exception as e:
         print(f"Error getting connection from pool: {e}")
         raise
+
+
 
 
 
