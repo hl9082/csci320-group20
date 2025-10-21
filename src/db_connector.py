@@ -14,7 +14,8 @@
 import os
 import atexit
 import psycopg
-from psycopg.pool import ConnectionPool
+# --- FIX: Use the correct pooling library ---
+from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
 from sshtunnel import SSHTunnelForwarder
 from contextlib import contextmanager
@@ -50,22 +51,21 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
         print(f"SSH tunnel established on local port {server.local_bind_port}.")
 
         print("Creating database connection pool...")
-        conninfo = (
-            f"dbname={DB_NAME} user={CS_USERNAME} password={CS_PASSWORD} "
-            f"host=localhost port={server.local_bind_port}"
-        )
 
-        # --- FINAL FIX for 'row_factory' ERROR ---
-        # Connection-specific arguments must be passed in a `kwargs` dictionary.
-        # This is the correct way to ensure every connection from the pool uses dict_row.
+        # --- FINAL FIX for Pool Syntax ---
+        # This now uses the correct psycopg_pool.ConnectionPool syntax
+        # with keyword arguments as you provided.
         db_pool = ConnectionPool(
-            conninfo,
             min_size=1,
             max_size=10,
             open=True,
-            kwargs={
-                'row_factory': dict_row
-            }
+            # Connection parameters passed as keyword arguments
+            dbname=DB_NAME,
+            user=CS_USERNAME,
+            password=CS_PASSWORD,
+            host='localhost',
+            port=server.local_bind_port,
+            row_factory=dict_row
         )
         print("Database connection pool created successfully.")
 
@@ -97,8 +97,9 @@ def get_db_connection():
 
     conn = None
     try:
-        conn = db_pool.getconn()
-        yield conn
-    finally:
-        if conn:
-            db_pool.putconn(conn)
+        with db_pool.connection() as conn:
+            yield conn
+    except Exception as e:
+        # It's useful to know if getting a connection fails
+        print(f"Error getting connection from pool: {e}")
+        raise
