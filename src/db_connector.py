@@ -14,7 +14,7 @@
 import os
 import atexit
 import psycopg
-from psycopg_pool import ConnectionPool
+from psycopg.pool import ConnectionPool
 from psycopg.rows import dict_row
 from sshtunnel import SSHTunnelForwarder
 from contextlib import contextmanager
@@ -31,15 +31,11 @@ DB_NAME = os.getenv("DB_NAME")
 server = None
 db_pool = None
 
-# --- INITIALIZATION FIX ---
-# This block now checks for an environment variable that Flask's reloader sets.
-# This ensures that the SSH tunnel and database pool are created ONLY ONCE in
-# the main application process, preventing conflicts with the reloader.
+# This block ensures the tunnel and pool are created only once by the main process.
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") == "production":
     if not all([CS_USERNAME, CS_PASSWORD, DB_NAME]):
         raise ConnectionError("Missing database credentials. Please check your .env file.")
 
-    # Define the SSH tunnel configuration
     print("Configuring SSH tunnel to starbug.cs.rit.edu...")
     server = SSHTunnelForwarder(
         ('starbug.cs.rit.edu', 22),
@@ -49,25 +45,27 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
     )
 
     try:
-        # Start the SSH tunnel
         print("Establishing SSH tunnel...")
         server.start()
         print(f"SSH tunnel established on local port {server.local_bind_port}.")
 
-        # Create the connection pool through the tunnel
         print("Creating database connection pool...")
         conninfo = (
             f"dbname={DB_NAME} user={CS_USERNAME} password={CS_PASSWORD} "
             f"host=localhost port={server.local_bind_port}"
         )
-        # --- FIX FOR 'connection_kwargs' ERROR ---
-        # The row_factory must be passed directly into the constructor.
+
+        # --- FINAL FIX for 'row_factory' ERROR ---
+        # Connection-specific arguments must be passed in a `kwargs` dictionary.
+        # This is the correct way to ensure every connection from the pool uses dict_row.
         db_pool = ConnectionPool(
             conninfo,
             min_size=1,
             max_size=10,
             open=True,
-            row_factory=dict_row  # Pass row_factory directly here
+            kwargs={
+                'row_factory': dict_row
+            }
         )
         print("Database connection pool created successfully.")
 
@@ -87,7 +85,6 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
             server.stop()
             print("SSH tunnel closed.")
 
-    # Register the shutdown hook to be called when the application exits
     atexit.register(shutdown_hook)
 
 @contextmanager
@@ -96,7 +93,6 @@ def get_db_connection():
     Gets a connection from the pre-established pool.
     """
     if not db_pool:
-        # This will now provide a clearer error if the pool failed to initialize.
         raise ConnectionError("Database connection pool is not available. Check startup logs for errors.")
 
     conn = None
