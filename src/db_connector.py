@@ -14,7 +14,7 @@
 import atexit
 import psycopg
 from psycopg.rows import dict_row
-from psycopg.pool import ConnectionPool
+from psycopg_pool import ConnectionPool
 from sshtunnel import SSHTunnelForwarder
 from contextlib import contextmanager
 import os
