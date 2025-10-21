@@ -11,16 +11,16 @@
 
 '''
 
+import os
 import atexit
 import psycopg
-from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
+from psycopg.rows import dict_row
 from sshtunnel import SSHTunnelForwarder
 from contextlib import contextmanager
-import os
 from dotenv import load_dotenv, find_dotenv
 
-# 1. Find and load environment variables from .env file
+# Find and load environment variables from .env file
 load_dotenv(find_dotenv())
 
 CS_USERNAME = os.getenv("CS_USERNAME")
@@ -31,117 +31,78 @@ DB_NAME = os.getenv("DB_NAME")
 server = None
 db_pool = None
 
-if not all([CS_USERNAME, CS_PASSWORD, DB_NAME]):
-    raise ConnectionError("Missing database credentials. Please check your .env file.")
-
-# 2. Define the SSH tunnel configuration
-# 
-print("Configuring SSH tunnel to starbug.cs.rit.edu...")
-server = SSHTunnelForwarder(
-    ('starbug.cs.rit.edu', 22),
-    ssh_username=CS_USERNAME,
-    ssh_password=CS_PASSWORD,
-    remote_bind_address=('127.0.0.1', 5432)
-)
-
-try:
-    # 3. Start the SSH tunnel
-    print("Establishing SSH tunnel...")
-    server.start()
-    print(f"SSH tunnel established on local port {server.local_bind_port}.")
-
-    # 4. Create the connection pool through the tunnel
-    # This pool is created only ONCE.
-    print("Creating database connection pool...")
-    conninfo = (
-        f"dbname={DB_NAME} user={CS_USERNAME} password={CS_PASSWORD} "
-        f"host=localhost port={server.local_bind_port}"
-    )
-    db_pool = ConnectionPool(conninfo, min_size=1, max_size=10, open=True)
-    # Set the row_factory for all connections in the pool
-    db_pool.connection_kwargs['row_factory'] = dict_row
-    print("Database connection pool created successfully.")
-
-except Exception as e:
-    print(f"FATAL: Failed to initialize database connection: {e}")
-    if server and server.is_active:
-        server.stop()
-    # Setting the pool to None ensures that any attempt to use it will fail clearly
-    db_pool = None
-
-
-@contextmanager
-def get_db_connection():
-    """
-    A context manager to get a connection from the pre-established pool.
-    This is now extremely fast as the tunnel and connections are already open.
-    """
-    if not db_pool:
-        raise ConnectionError("Database connection pool is not available.")
-
-    conn = None
-    try:
-        # Get a connection from the pool
-        conn = db_pool.getconn()
-        yield conn
-    finally:
-        if conn:
-            # Return the connection to the pool
-            db_pool.putconn(conn)
-
-
-def shutdown_hook():
-    """
-    A cleanup function to close the pool and tunnel when the app exits.
-    """
-    print("Executing shutdown hook...")
-    if db_pool:
-        db_pool.close()
-        print("Database connection pool closed.")
-    if server and server.is_active:
-        server.stop()
-        print("SSH tunnel closed.")
-
-# 5. Register the shutdown hook to be called when the application exits
-atexit.register(shutdown_hook)# Find and load environment variables from .env file in the project root
-load_dotenv(find_dotenv())
-
-CS_USERNAME = os.getenv("CS_USERNAME")
-CS_PASSWORD = os.getenv("CS_PASSWORD")
-DB_NAME = os.getenv("DB_NAME")
-
-
-@contextmanager
-def get_db_connection():
-    """
-    A context manager to handle the SSH tunnel and DB connection lifecycle.
-    """
+# --- INITIALIZATION FIX ---
+# This block now checks for an environment variable that Flask's reloader sets.
+# This ensures that the SSH tunnel and database pool are created ONLY ONCE in
+# the main application process, preventing conflicts with the reloader.
+if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") == "production":
     if not all([CS_USERNAME, CS_PASSWORD, DB_NAME]):
         raise ConnectionError("Missing database credentials. Please check your .env file.")
 
+    # Define the SSH tunnel configuration
+    print("Configuring SSH tunnel to starbug.cs.rit.edu...")
     server = SSHTunnelForwarder(
         ('starbug.cs.rit.edu', 22),
         ssh_username=CS_USERNAME,
         ssh_password=CS_PASSWORD,
         remote_bind_address=('127.0.0.1', 5432)
     )
-    conn = None
+
     try:
+        # Start the SSH tunnel
         print("Establishing SSH tunnel...")
         server.start()
-        print("SSH tunnel established.")
-        params = {
-            'dbname': DB_NAME, 'user': CS_USERNAME, 'password': CS_PASSWORD,
-            'host': 'localhost', 'port': server.local_bind_port
-        }
-        print("Connecting to database...")
-        conn = psycopg.connect(**params)
-        conn.row_factory = dict_row
-        print("Database connection successful.")
+        print(f"SSH tunnel established on local port {server.local_bind_port}.")
+
+        # Create the connection pool through the tunnel
+        print("Creating database connection pool...")
+        conninfo = (
+            f"dbname={DB_NAME} user={CS_USERNAME} password={CS_PASSWORD} "
+            f"host=localhost port={server.local_bind_port}"
+        )
+        # --- FIX FOR 'connection_kwargs' ERROR ---
+        # The row_factory must be passed directly into the constructor.
+        db_pool = ConnectionPool(
+            conninfo,
+            min_size=1,
+            max_size=10,
+            open=True,
+            row_factory=dict_row  # Pass row_factory directly here
+        )
+        print("Database connection pool created successfully.")
+
+    except Exception as e:
+        print(f"FATAL: Failed to initialize database connection: {e}")
+        if server and server.is_active:
+            server.stop()
+        db_pool = None
+
+    def shutdown_hook():
+        """A cleanup function to close resources when the app exits."""
+        print("Executing shutdown hook...")
+        if db_pool:
+            db_pool.close()
+            print("Database connection pool closed.")
+        if server and server.is_active:
+            server.stop()
+            print("SSH tunnel closed.")
+
+    # Register the shutdown hook to be called when the application exits
+    atexit.register(shutdown_hook)
+
+@contextmanager
+def get_db_connection():
+    """
+    Gets a connection from the pre-established pool.
+    """
+    if not db_pool:
+        # This will now provide a clearer error if the pool failed to initialize.
+        raise ConnectionError("Database connection pool is not available. Check startup logs for errors.")
+
+    conn = None
+    try:
+        conn = db_pool.getconn()
         yield conn
     finally:
         if conn:
-            conn.close()
-            print("Database connection closed.")
-        server.stop()
-        print("SSH tunnel closed.")
+            db_pool.putconn(conn)
