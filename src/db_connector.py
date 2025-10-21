@@ -17,7 +17,7 @@ import psycopg
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
-from sshtunnel import SShtunnelForwarder
+from sshtunnel import SSHTunnelForwarder
 from dotenv import load_dotenv, find_dotenv
 
 # Find and load environment variables from .env file
