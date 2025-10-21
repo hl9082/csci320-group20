@@ -13,8 +13,8 @@
 
 import os
 import atexit
+import time  # Import the time module
 import psycopg
-# Use the correct, modern pooling library
 from psycopg_pool import ConnectionPool
 from psycopg.rows import dict_row
 from sshtunnel import SSHTunnelForwarder
@@ -50,27 +50,24 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
         server.start()
         print(f"SSH tunnel established on local port {server.local_bind_port}.")
 
-        print("Creating database connection pool...")
+        # --- FIX: Wait for the tunnel to stabilize before connecting ---
+        # This small delay prevents the race condition with the connection pool.
+        print("Waiting 1 second for tunnel to stabilize...")
+        time.sleep(1)
 
-        # --- CORRECTED CONNINFO URI ---
-        # As per your documentation, the conninfo must be a URI string.
+        print("Creating database connection pool...")
         conninfo_uri = (
             f"postgresql://{CS_USERNAME}:{CS_PASSWORD}@localhost:{server.local_bind_port}/{DB_NAME}"
         )
-
         db_pool = ConnectionPool(
             conninfo=conninfo_uri,
             min_size=1,
             max_size=10,
-            # Pass connection-specific arguments like row_factory in kwargs
-            kwargs={
-                'row_factory': dict_row
-            }
+            kwargs={'row_factory': dict_row}
         )
-        print("Database connection pool created successfully.")
+        print("Database connection pool created.")
 
-        # --- FIX: Verify the pool can connect before proceeding ---
-        # This blocks until the first connection is made, preventing race conditions.
+        # Verify the pool can connect before proceeding
         print("Checking pool health and establishing initial connection...")
         db_pool.check()
         print("Database connection pool is healthy and ready.")
@@ -100,13 +97,13 @@ def get_db_connection():
     """
     if not db_pool:
         raise ConnectionError("Database connection pool is not available. Check startup logs for errors.")
-
     try:
-        # The 'with' statement handles getting a connection and returning it to the pool
         with db_pool.connection() as conn:
             yield conn
     except Exception as e:
         print(f"Error getting connection from pool: {e}")
         raise
+
+
 
 
