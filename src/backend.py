@@ -13,6 +13,7 @@ import psycopg
 from datetime import datetime
 # Import the single, authoritative connection function from the connector module
 from db_connector import get_db_connection
+import bcrypt
 
 # --- User Management ---
 def create_user(username, password, first_name, last_name, email):
@@ -28,19 +29,30 @@ def create_user(username, password, first_name, last_name, email):
    
     Returns: new user's id; None if the username or email already exists.
     '''
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+
     now = datetime.now()
+    # Note: Using "user" as a table name can be problematic. Consider "users" instead.
     sql = 'INSERT INTO "user"(username, password, firstname, lastname, email, creationdate, lastaccessdate) VALUES(%s, %s, %s, %s, %s, %s, %s) RETURNING userid'
+    user_id = None
+
     try:
-        with get_db_connection() as conn, conn.cursor() as curs:
-            curs.execute(sql, (username, password, first_name, last_name, email, now, now))
-            user_id = curs.fetchone()['userid']
-            conn.commit()
-            return user_id
+        # Use our new pooled connection function, which is now very fast.
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                # Store the decoded hash string, not the plaintext password.
+                curs.execute(sql, (username, hashed_password.decode('utf-8'), first_name, last_name, email, now, now))
+                user_id_row = curs.fetchone()
+                if user_id_row:
+                    user_id = user_id_row['userid']
+                conn.commit()
     except psycopg.errors.UniqueViolation:
-        return None
+        print(f"Attempted to create a user with a duplicate username or email: {username}")
+        # conn.rollback() happens automatically when the 'with' block exits on error.
     except (psycopg.Error, ConnectionError) as e:
         print(f"Error creating user: {e}")
-        return None
+
+    return user_id
 
 def login_user(username, password):
     
@@ -54,20 +66,33 @@ def login_user(username, password):
     Returns: user, None if login fails.
     '''
     
-    sql_select = 'SELECT userid, username FROM "user" WHERE username = %s AND password = %s'
-    sql_update = 'UPDATE "user" SET lastaccessdate = %s WHERE userid = %s'
-    now = datetime.now()
+    user_data = None
+    # 1. Fetch the user's record, including the hashed password, by their username.
+    sql_select = 'SELECT userid, username, password FROM "user" WHERE username = %s'
+
     try:
-        with get_db_connection() as conn, conn.cursor() as curs:
-            curs.execute(sql_select, (username, password))
-            user = curs.fetchone()
-            if user:
-                curs.execute(sql_update, (now, user['userid']))
-                conn.commit()
-                return user
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql_select, (username,))
+                user_record = curs.fetchone()
+
+                # 2. If a user is found, check if the provided password matches the stored hash.
+                if user_record and bcrypt.checkpw(password.encode('utf-8'), user_record['password'].encode('utf-8')):
+                    # Password is correct!
+                    now = datetime.now()
+                    sql_update = 'UPDATE "user" SET lastaccessdate = %s WHERE userid = %s'
+                    curs.execute(sql_update, (now, user_record['userid']))
+                    conn.commit()
+
+                    # Don't send the password hash back to the web app.
+                    user_data = {
+                        'userid': user_record['userid'],
+                        'username': user_record['username']
+                    }
     except (psycopg.Error, ConnectionError) as e:
         print(f"Login failed due to a database error: {e}")
-        return None
+
+    return user_data
 
 # --- Collection Management ---
 def get_user_collections(user_id):
@@ -83,9 +108,10 @@ def get_user_collections(user_id):
   
     sql = 'SELECT title, numberofsongs, length FROM "collection" WHERE userid = %s ORDER BY title ASC'
     try:
-        with get_db_connection() as conn, conn.cursor() as curs:
-            curs.execute(sql, (user_id,))
-            return curs.fetchall()
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql, (user_id,))
+                return curs.fetchall()
     except (psycopg.Error, ConnectionError) as e:
         print(f"Failed to get collections due to a database error: {e}")
         return [] # Return an empty list on error
