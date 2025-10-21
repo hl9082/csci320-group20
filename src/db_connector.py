@@ -13,9 +13,9 @@
 
 import os
 import atexit
-import psycopg
-from sqlalchemy import create_engine, text
-from sqlalchemy.orm import sessionmaker
+import psycopg2
+from psycopg2.pool import ThreadedConnectionPool
+from psycopg2.extras import DictCursor
 from contextlib import contextmanager
 from sshtunnel import SSHTunnelForwarder
 from dotenv import load_dotenv, find_dotenv
@@ -27,11 +27,11 @@ CS_USERNAME = os.getenv("CS_USERNAME")
 CS_PASSWORD = os.getenv("CS_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
 
-# Global variables for the tunnel and the SQLAlchemy engine
+# Global variables for the tunnel and the connection pool
 server = None
-engine = None
+db_pool = None
 
-# This block ensures the tunnel and engine are created only once by the main Flask process.
+# This block ensures the tunnel and pool are created only once by the main Flask process.
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") == "production":
     if not all([CS_USERNAME, CS_PASSWORD, DB_NAME]):
         raise ConnectionError("Missing database credentials. Please check your .env file.")
@@ -49,31 +49,34 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
         server.start()
         print(f"SSH tunnel established on local port {server.local_bind_port}.")
 
-        # Create the connection URI for SQLAlchemy
-        db_uri = (
-            f"postgresql+psycopg://{CS_USERNAME}:{CS_PASSWORD}@localhost:{server.local_bind_port}/{DB_NAME}"
+        # Create the DSN string for psycopg2
+        dsn = (
+            f"dbname='{DB_NAME}' user='{CS_USERNAME}' password='{CS_PASSWORD}' "
+            f"host='localhost' port='{server.local_bind_port}'"
         )
 
-        print("Creating SQLAlchemy engine and connection pool...")
-        # create_engine automatically handles connection pooling.
-        engine = create_engine(db_uri, pool_pre_ping=True) # pool_pre_ping checks connection validity
-
-        # Test the connection to ensure everything is working before the app starts.
-        with engine.connect() as connection:
-            print("Database connection successful. Engine is ready.")
+        print("Creating psycopg2 connection pool...")
+        # Use a threaded pool suitable for web applications.
+        # DictCursor allows accessing rows like dictionaries (e.g., row['id'])
+        db_pool = ThreadedConnectionPool(minconn=1, maxconn=10, dsn=dsn, cursor_factory=DictCursor)
+        
+        # Test the connection to ensure the pool is valid before the app starts.
+        with db_pool.getconn() as conn:
+            print("Database connection successful. Pool is ready.")
+        db_pool.putconn(conn) # Return the connection to the pool
 
     except Exception as e:
         print(f"FATAL: Failed to initialize database connection: {e}")
         if server and server.is_active:
             server.stop()
-        engine = None # Ensure engine is None on failure
+        db_pool = None # Ensure pool is None on failure
 
     def shutdown_hook():
         """A cleanup function to close resources when the app exits."""
         print("Executing shutdown hook...")
-        if engine:
-            engine.dispose()
-            print("SQLAlchemy engine disposed.")
+        if db_pool:
+            db_pool.closeall()
+            print("psycopg2 connection pool closed.")
         if server and server.is_active:
             server.stop()
             print("SSH tunnel closed.")
@@ -83,21 +86,21 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
 @contextmanager
 def get_db_connection():
     """
-    Gets a connection from the SQLAlchemy engine's pool.
+    Gets a connection from the psycopg2 pool.
     """
-    if not engine:
-        raise ConnectionError("Database engine is not available. Check startup logs for errors.")
+    if not db_pool:
+        raise ConnectionError("Database pool is not available. Check startup logs for errors.")
     
-    connection = None
+    conn = None
     try:
-        connection = engine.connect()
-        yield connection
+        conn = db_pool.getconn()
+        yield conn
     except Exception as e:
-        print(f"Error getting connection from SQLAlchemy pool: {e}")
+        print(f"Error getting connection from psycopg2 pool: {e}")
         raise
     finally:
-        if connection:
-            connection.close()
+        if conn:
+            db_pool.putconn(conn)
 
 
 
