@@ -13,13 +13,11 @@
 
 import os
 import atexit
-import time
-import socket # Import the socket module
 import psycopg
-from psycopg_pool import ConnectionPool
-from psycopg.rows import dict_row
-from sshtunnel import SSHTunnelForwarder
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 from contextlib import contextmanager
+from sshtunnel import SShtunnelForwarder
 from dotenv import load_dotenv, find_dotenv
 
 # Find and load environment variables from .env file
@@ -29,11 +27,11 @@ CS_USERNAME = os.getenv("CS_USERNAME")
 CS_PASSWORD = os.getenv("CS_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")
 
-# Global variables for the tunnel and the pool
+# Global variables for the tunnel and the SQLAlchemy engine
 server = None
-db_pool = None
+engine = None
 
-# This block ensures the tunnel and pool are created only once by the main Flask process.
+# This block ensures the tunnel and engine are created only once by the main Flask process.
 if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") == "production":
     if not all([CS_USERNAME, CS_PASSWORD, DB_NAME]):
         raise ConnectionError("Missing database credentials. Please check your .env file.")
@@ -51,56 +49,31 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
         server.start()
         print(f"SSH tunnel established on local port {server.local_bind_port}.")
 
-        # --- FIX: Actively probe the tunnel port to ensure it's ready ---
-        print("Waiting for tunnel to become ready...")
-        tunnel_ready = False
-        wait_start_time = time.monotonic()
-        wait_timeout = 15  # seconds
-
-        while time.monotonic() - wait_start_time < wait_timeout:
-            try:
-                # Attempt to create a brief connection to the tunnel's local port
-                with socket.create_connection(('127.0.0.1', server.local_bind_port), timeout=1):
-                    tunnel_ready = True
-                    print("Tunnel is ready and accepting connections.")
-                    break
-            except (ConnectionRefusedError, socket.timeout):
-                # Port is not open yet, wait a moment and retry
-                time.sleep(0.2)
-        
-        if not tunnel_ready:
-            raise ConnectionError(f"SSH tunnel failed to become ready on port {server.local_bind_port} within {wait_timeout} seconds.")
-
-        # --- Proceed only after tunnel is confirmed to be ready ---
-        print("Creating database connection pool...")
-        conninfo_uri = (
-            f"postgresql://{CS_USERNAME}:{CS_PASSWORD}@localhost:{server.local_bind_port}/{DB_NAME}"
+        # Create the connection URI for SQLAlchemy
+        db_uri = (
+            f"postgresql+psycopg://{CS_USERNAME}:{CS_PASSWORD}@localhost:{server.local_bind_port}/{DB_NAME}"
         )
-        db_pool = ConnectionPool(
-            conninfo=conninfo_uri,
-            min_size=1,
-            max_size=10,
-            kwargs={'row_factory': dict_row}
-        )
-        print("Database connection pool created.")
 
-        # Final verification
-        print("Checking pool health...")
-        db_pool.check()
-        print("Database connection pool is healthy and ready.")
+        print("Creating SQLAlchemy engine and connection pool...")
+        # create_engine automatically handles connection pooling.
+        engine = create_engine(db_uri, pool_pre_ping=True) # pool_pre_ping checks connection validity
+
+        # Test the connection to ensure everything is working before the app starts.
+        with engine.connect() as connection:
+            print("Database connection successful. Engine is ready.")
 
     except Exception as e:
         print(f"FATAL: Failed to initialize database connection: {e}")
         if server and server.is_active:
             server.stop()
-        db_pool = None
+        engine = None # Ensure engine is None on failure
 
     def shutdown_hook():
         """A cleanup function to close resources when the app exits."""
         print("Executing shutdown hook...")
-        if db_pool:
-            db_pool.close()
-            print("Database connection pool closed.")
+        if engine:
+            engine.dispose()
+            print("SQLAlchemy engine disposed.")
         if server and server.is_active:
             server.stop()
             print("SSH tunnel closed.")
@@ -110,16 +83,21 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
 @contextmanager
 def get_db_connection():
     """
-    Gets a connection from the pre-established pool.
+    Gets a connection from the SQLAlchemy engine's pool.
     """
-    if not db_pool:
-        raise ConnectionError("Database connection pool is not available. Check startup logs for errors.")
+    if not engine:
+        raise ConnectionError("Database engine is not available. Check startup logs for errors.")
+    
+    connection = None
     try:
-        with db_pool.connection() as conn:
-            yield conn
+        connection = engine.connect()
+        yield connection
     except Exception as e:
-        print(f"Error getting connection from pool: {e}")
+        print(f"Error getting connection from SQLAlchemy pool: {e}")
         raise
+    finally:
+        if connection:
+            connection.close()
 
 
 
