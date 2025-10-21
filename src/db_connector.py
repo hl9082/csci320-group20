@@ -69,6 +69,12 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
         )
         print("Database connection pool created successfully.")
 
+        # --- FIX: Verify the pool can connect before proceeding ---
+        # This blocks until the first connection is made, preventing race conditions.
+        print("Checking pool health and establishing initial connection...")
+        db_pool.check()
+        print("Database connection pool is healthy and ready.")
+
     except Exception as e:
         print(f"FATAL: Failed to initialize database connection: {e}")
         if server and server.is_active:
@@ -102,3 +108,5 @@ def get_db_connection():
     except Exception as e:
         print(f"Error getting connection from pool: {e}")
         raise
+
+
