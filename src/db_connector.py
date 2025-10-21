@@ -60,10 +60,10 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true" or os.environ.get("FLASK_ENV") 
             max_size=10,
             open=True,
             # Connection parameters passed as keyword arguments
-            dbname=DB_NAME,
             user=CS_USERNAME,
             password=CS_PASSWORD,
             host='localhost',
+            dbname=DB_NAME,
             port=server.local_bind_port,
             row_factory=dict_row
         )
