@@ -38,7 +38,7 @@ def create_user(username, password, first_name, last_name, email):
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     now = datetime.now()
     sql = """
-        INSERT INTO "user"(username, password, firstname, lastname, email, creationdate, lastaccessdate)
+        INSERT INTO "users"(username, password, firstname, lastname, email, creationdate, lastaccessdate)
         VALUES(%s, %s, %s, %s, %s, %s, %s)
         RETURNING userid
     """
@@ -72,9 +72,9 @@ def login_user(username, password):
     Exceptions:
         Catches and prints any database-related exceptions, returning None.
     """
-    sql_select = 'SELECT userid, username, password FROM "user" WHERE username = %s'
-    sql_update_access = 'UPDATE "user" SET lastaccessdate = %s WHERE userid = %s'
-    sql_update_password = 'UPDATE "user" SET password = %s, lastaccessdate = %s WHERE userid = %s'
+    sql_select = 'SELECT userid, username, password FROM "users" WHERE username = %s'
+    sql_update_access = 'UPDATE "users" SET lastaccessdate = %s WHERE userid = %s'
+    sql_update_password = 'UPDATE "users" SET password = %s, lastaccessdate = %s WHERE userid = %s'
     now = datetime.now()
 
     try:
