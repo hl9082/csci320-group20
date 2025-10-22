@@ -51,10 +51,12 @@ CSCI320-Group20/
         ```
 
 3.  **Install Dependencies**
-    -   Navigate to the `root` directory in your terminal.
+    -   Navigate to the `src` directory in your terminal.
+    -   python -m venv venv
+    -   venv\Scripts\activate
     -   Install or upgrade the required packages using the `requirements.txt` file:
         ```bash
-        pip install --upgrade -r src/requirements.txt
+        pip install requirements.txt
         ```
 
 4.  **Run the Application**
