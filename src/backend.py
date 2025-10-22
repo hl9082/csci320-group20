@@ -35,7 +35,7 @@ def create_user(username, password, first_name, last_name, email):
         Handles psycopg2.errors.UniqueViolation internally to return None.
         Catches and prints any other Exception, returning None.
     """
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    # hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
     now = datetime.now()
     sql = """
         INSERT INTO "users"(username, password, firstname, lastname, email, creationdate, lastaccessdate)
@@ -45,7 +45,7 @@ def create_user(username, password, first_name, last_name, email):
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
-                curs.execute(sql, (username, hashed_password.decode('utf-8'), first_name, last_name, email, now, now))
+                curs.execute(sql, (username, password, first_name, last_name, email, now, now))
                 user_id = curs.fetchone()['userid']
                 conn.commit()
                 return user_id
@@ -74,7 +74,7 @@ def login_user(username, password):
     """
     sql_select = 'SELECT userid, username, password FROM "users" WHERE username = %s'
     sql_update_access = 'UPDATE "users" SET lastaccessdate = %s WHERE userid = %s'
-    sql_update_password = 'UPDATE "users" SET password = %s, lastaccessdate = %s WHERE userid = %s'
+    # sql_update_password = 'UPDATE "users" SET password = %s, lastaccessdate = %s WHERE userid = %s'
     now = datetime.now()
 
     try:
@@ -101,7 +101,7 @@ def login_user(username, password):
                     # Stored password is plaintext, perform a direct comparison and upgrade.
                     if stored_password == password:
                         print(f"NOTICE: Upgrading plaintext password for user: {username}")
-                        new_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                        # new_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                         curs.execute(sql_update_password, (new_hash, now, user_record['userid']))
                         conn.commit()
                         print(f"SUCCESS: Password for user '{username}' has been securely upgraded.")
