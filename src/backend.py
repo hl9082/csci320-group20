@@ -102,7 +102,7 @@ def login_user(username, password):
                     if stored_password == password:
                         print(f"NOTICE: Upgrading plaintext password for user: {username}")
                         # new_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                        curs.execute(sql_update_access, (new_hash, now, user_record['userid']))
+                        curs.execute(sql_update_access, ( now, user_record['userid']))
                         conn.commit()
                         print(f"SUCCESS: Password for user '{username}' has been securely upgraded.")
                         return {'userid': user_record['userid'], 'username': user_record['username']}
