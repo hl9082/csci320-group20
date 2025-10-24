@@ -1,29 +1,31 @@
-{% extends "layout.html" %}
-{% block title %}Dashboard{% endblock %}
-{% block content %}
-    <h1>Welcome, {{ session.username }}!</h1>
+{% extends "base.html" %}
 
-    <h2>My Collections</h2>
-    {% if collections %}
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Songs</th>
-                <th>Duration (min)</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for collection in collections %}
-            <tr>
-                <td>{{ collection.title }}</td>
-                <td>{{ collection.numberofsongs }}</td>
-                <td>{{ (collection.length / 60) | round(2) }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>You have no collections yet. <a href="{{ url_for('collections') }}">Create one!</a></p>
-    {% endif %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+    <h1 class="text-4xl font-bold mb-6 text-white">
+        Welcome, <span class="text-blue-400">{{ session.username }}</span>!
+    </h1>
+    
+    <p class="text-lg text-gray-300 mb-8">What would you like to do today?</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Search Card -->
+        <a href="{{ url_for('search') }}" class="block p-6 bg-gray-700 rounded-xl shadow-lg hover:bg-gray-600 transition-all transform hover:-translate-y-1">
+            <h2 class="text-2xl font-semibold mb-2 text-white">Search Songs</h2>
+            <p class="text-gray-300">Find new music by song, artist, album, or genre.</p>
+        </a>
+        
+        <!-- Collections Card -->
+        <a href="{{ url_for('collections') }}" class="block p-6 bg-gray-700 rounded-xl shadow-lg hover:bg-gray-600 transition-all transform hover:-translate-y-1">
+            <h2 class="text-2xl font-semibold mb-2 text-white">My Collections</h2>
+            <p class="text-gray-300">View and manage your saved music collections.</p>
+        </a>
+        
+        <!-- Find Users Card -->
+        <a href="{{ url_for('search_users') }}" class="block p-6 bg-gray-700 rounded-xl shadow-lg hover:bg-gray-600 transition-all transform hover:-translate-y-1">
+            <h2 class="text-2xl font-semibold mb-2 text-white">Find Users</h2>
+            <p class="text-gray-300">Search for other users and see what they're listening to.</p>
+        </a>
+    </div>
 {% endblock %}
