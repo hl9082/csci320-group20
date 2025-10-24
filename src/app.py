@@ -160,7 +160,7 @@ def collections():
     user_collections = backend.get_user_collections(session['user_id'])
     return render_template('collections.html', collections=user_collections)
 
-@app.route('/collection/create', methods=['POST'])
+@app.route('/collections/create', methods=['POST'])
 def create_collection():
     """
     Handles the creation of a new, empty collection (POST request).
@@ -177,7 +177,7 @@ def create_collection():
             
     return redirect(url_for('collections'))
 
-@app.route('/collection/<string:collection_title>')
+@app.route('/collections/<string:collection_title>')
 def collection_details(collection_title):
     """
     Displays the details and list of songs for a specific collection.
@@ -194,7 +194,7 @@ def collection_details(collection_title):
         
     return render_template('collection_details.html', collection=details)
 
-@app.route('/collection/rename', methods=['POST'])
+@app.route('/collections/rename', methods=['POST'])
 def rename_collection():
     """
     Handles renaming a collection (POST request).
@@ -215,7 +215,7 @@ def rename_collection():
             
     return redirect(url_for('collections'))
 
-@app.route('/collection/delete', methods=['POST'])
+@app.route('/collections/delete', methods=['POST'])
 def delete_collection():
     """
     Handles deleting an entire collection (POST request).
@@ -232,7 +232,7 @@ def delete_collection():
 
 # --- Song and "Play" Routes ---
 
-@app.route('/collection/add_song', methods=['POST'])
+@app.route('/collections/add_song', methods=['POST'])
 def add_song_to_collection():
     """
     Handles adding a single song to a collection (POST request).
@@ -265,7 +265,7 @@ def add_song_to_collection():
     # Redirect back to the page the user was on
     return redirect(request.referrer or url_for('dashboard'))
 
-@app.route('/collection/remove_song', methods=['POST'])
+@app.route('/collections/remove_song', methods=['POST'])
 def remove_song_from_collection():
     """
     Handles removing a single song from a collection (POST request).
@@ -296,7 +296,7 @@ def play_song_route(song_id):
     # Redirect back to the page the user was on
     return redirect(request.referrer or url_for('dashboard'))
 
-@app.route('/play/collection/<string:collection_title>', methods=['POST'])
+@app.route('/play/collections/<string:collection_title>', methods=['POST'])
 def play_collection_route(collection_title):
     """
     Logs that a user "played" all songs in a collection.
