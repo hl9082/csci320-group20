@@ -148,31 +148,42 @@ def get_collection_details(collection_id, user_id):
     
     Returns collection's details, and None if not exists.
     """
-    # First, get collection info and verify ownership
-    sql_collection = 'SELECT collectionid, title FROM "collection" WHERE collectionid = %s AND userid = %s'
+    collection_info = {
+        'title': collection_title,
+        'songs': []
+    }
     
-    # Then, get all songs in that collection
+    # Get all songs in that collection
     sql_songs = """
-        SELECT s.songid, s.title as song_title, ar.name as artist_name, al.title as album_title, s.length, g.name as genre_name
-        FROM "song" s
-        JOIN "collection_song" cs ON s.songid = cs.songid
-        JOIN "artist" ar ON s.artistid = ar.artistid
-        JOIN "album" al ON s.albumid = al.albumid
-        JOIN "genre" g ON s.genreid = g.genreid
-        WHERE cs.collectionid = %s
-        ORDER BY s.title
+        SELECT 
+            S.songid, S.title AS SongTitle, S.length, S.releasedate,
+            A.name AS ArtistName,
+            AL.title AS AlbumTitle, AL.albumid,
+            G.genretype AS GenreName,
+            R.rating
+        FROM "song" S
+        JOIN "consists_of" CO ON S.songid = CO.songid
+        JOIN "performs" P ON S.songid = P.songid
+        JOIN "artist" A ON P.artistid = A.artistid
+        JOIN "contains" C ON S.songid = C.songid
+        JOIN "album" AL ON C.albumid = AL.albumid
+        JOIN "has" H ON S.songid = H.songid
+        JOIN "genre" G ON H.genreid = G.genreid
+        LEFT JOIN "rates" R ON S.songid = R.songid AND R.songid = %s
+        WHERE CO.userid = %s AND CO.title = %s
+        ORDER BY S.title
     """
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
-                curs.execute(sql_collection, (collection_id, user_id))
-                collection_info = curs.fetchone()
-                
-                if not collection_info:
-                    return None # User does not own this or it doesn't exist
-
-                curs.execute(sql_songs, (collection_id,))
+                curs.execute(sql_songs, (user_id, user_id, collection_title))
                 songs = curs.fetchall()
+                
+                if not songs:
+                    # Check if the collection *exists* but is just empty
+                    curs.execute('SELECT 1 FROM "COLLECTION" WHERE UserID = %s AND Title = %s', (user_id, collection_title))
+                    if curs.fetchone() is None:
+                        return None # Collection doesn't exist at all
                 
                 collection_info['songs'] = songs
                 return collection_info
@@ -213,7 +224,7 @@ def rename_collection(collection_id, new_title, user_id):
     
     Returns True if a row was updated, and False if otherwise.
     """
-    sql = 'UPDATE "collection" SET title = %s WHERE collectionid = %s AND userid = %s'
+    sql = 'UPDATE "collection" SET title = %s WHERE title = %s AND userid = %s'
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -234,27 +245,41 @@ def delete_collection(collection_id, user_id):
     
     Returns True if the collection is removed, and False if otherwise.
     """
-    # Verify ownership before deleting
-    sql_check = 'SELECT 1 FROM "collection" WHERE collectionid = %s AND userid = %s'
-    sql_delete_songs = 'DELETE FROM "collection_song" WHERE collectionid = %s'
-    sql_delete_collection = 'DELETE FROM "collection" WHERE collectionid = %s'
-    
+    sql = 'DELETE FROM "collection" where userid = %s AND title = %s'
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
-                curs.execute(sql_check, (collection_id, user_id))
-                if curs.fetchone() is None:
-                    return False # User does not own this
-                
-                # Run deletes
-                curs.execute(sql_delete_songs, (collection_id,))
-                curs.execute(sql_delete_collection, (collection_id,))
+                curs.execute(sql, (user_id, title))
                 conn.commit()
                 return True
     except Exception as e:
         print(f"Failed to delete collection: {e}")
         conn.rollback() # Rollback on error
         return False
+    
+def update_collection_stats(conn, user_id, collection_title):
+    """
+    Private helper function to update a collection's song count and total length.
+    This should be called *within* a transaction.
+    """
+    sql_update_stats = """
+        WITH Stats AS (
+            SELECT
+                COUNT(S.songiD) AS SongCount,
+                COALESCE(SUM(S.length), 0) AS TotalLength
+            FROM "consists_of" CO
+            JOIN "song" S ON CO.songid = S.songid
+            WHERE CO.userid = %s AND CO.title = %s
+        )
+        UPDATE "collection" C
+        SET
+            numberofsongs = S.SongCount,
+            length = S.TotalLength
+        FROM Stats S
+        WHERE C.userid = %s AND C.title = %s;
+    """
+    with conn.cursor() as curs:
+        curs.execute(sql_update_stats, (user_id, collection_title, user_id, collection_title))
 
 # --- Song and Search Management ---
 
@@ -270,29 +295,68 @@ def add_song_to_collection(collection_id, song_id, user_id):
     
     Returns True if the song is added, and False if otherwise.
     """
-    # Check if user owns the collection
-    sql_check = 'SELECT 1 FROM "collection" WHERE collectionid = %s AND userid = %s'
-    sql_insert = 'INSERT INTO "collection_song" (collectionid, songid) VALUES (%s, %s)'
+    
+    sql_insert = 'INSERT INTO "consists_of" (userid, title, songid) VALUES (%s, %s, %s)'
     
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
-                curs.execute(sql_check, (collection_id, user_id))
-                if curs.fetchone() is None:
-                    return False # User does not own this
-                
-                curs.execute(sql_insert, (collection_id, song_id))
-                conn.commit()
-                # Here you would also update collection.numberofsongs and collection.length
-                return True
+                # Insert the song into the bridge table
+                curs.execute(sql_insert, (user_id, collection_title, song_id))
+            
+            # Update the collection stats in the same transaction
+            update_collection_stats(conn, user_id, collection_title)
+            
+            conn.commit()
+            return True
     except psycopg2.errors.UniqueViolation:
         # Song is already in the collection
-        conn.rollback()
+        return False
+    except psycopg2.errors.ForeignKeyViolation:
+        # User doesn't own this collection, or song doesn't exist
         return False
     except Exception as e:
         print(f"Failed to add song to collection: {e}")
         conn.rollback()
         return False
+    
+def add_album_to_collection(user_id, collection_title, album_id):
+    """
+    Adds all songs from a given album to a collection.
+    Ignores songs that are already in the collection.
+    Returns the number of *new* songs added.
+    """
+    # This query finds all songs from the album that are NOT already
+    # in the user's collection, then inserts them.
+    sql_insert_album = """
+        INSERT INTO "consists_of" (userid, title, songid)
+        SELECT %s, %s, C.songid
+        FROM "contains" C
+        WHERE C.albumid = %s
+        AND NOT EXISTS (
+            SELECT 1
+            FROM "consists_of" CO
+            WHERE CO.userid = %s
+            AND CO.title = %s
+            AND CO.songid = C.songid
+        )
+    """
+    
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql_insert_album, (user_id, collection_title, album_id, user_id, collection_title))
+                added_count = curs.rowcount # Get how many songs were inserted
+            
+            # Update the collection stats in the same transaction
+            _update_collection_stats(conn, user_id, collection_title)
+            
+            conn.commit()
+            return added_count
+    except Exception as e:
+        print(f"Failed to add album to collection: {e}")
+        conn.rollback()
+        return 0
 
 def remove_song_from_collection(collection_id, song_id, user_id):
     """
@@ -306,21 +370,20 @@ def remove_song_from_collection(collection_id, song_id, user_id):
     Returns True if the song is removed, and False if otherwise.
     """
     # We join with the collection table to ensure the user_id matches.
-    sql = """
-        DELETE FROM "collection_song" cs
-        USING "collection" c
-        WHERE cs.collectionid = c.collectionid
-          AND c.collectionid = %s
-          AND cs.songid = %s
-          AND c.userid = %s
-    """
+    sql_delete = 'DELETE FROM "consists_of" WHERE userid = %s AND title = %s AND songid = %s'
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
-                curs.execute(sql, (collection_id, song_id, user_id))
-                conn.commit()
-                # Here you would also update collection.numberofsongs and collection.length
-                return curs.rowcount > 0
+                # Delete the song from the bridge table
+                curs.execute(sql_delete, (user_id, collection_title, song_id))
+                deleted_count = curs.rowcount
+            
+            if deleted_count > 0:
+                # Update stats only if a song was actually deleted
+                update_collection_stats(conn, user_id, collection_title)
+            
+            conn.commit()
+            return deleted_count > 0
     except Exception as e:
         print(f"Failed to remove song from collection: {e}")
         conn.rollback()
@@ -338,46 +401,66 @@ def search_songs(search_term, search_type, sort_by, sort_order):
     """
     # Whitelist sort options to prevent SQL injection
     sort_columns_map = {
-        'song_name': 's.title',
-        'artist_name': 'ar.name',
-        'genre_name': 'g.name',
-        'releaseyear': 's.releaseyear'
+        'song_name': 'S.title',
+        'artist_name': 'A.name',
+        'genre_name': 'G.genretype',
+        'releaseyear': 'S.releaseyear'
     }
     sort_order_map = {'ASC': 'ASC', 'DESC': 'DESC'}
 
     # Default to safe values if inputs are invalid
-    sort_column = sort_columns_map.get(sort_by, 's.title')
+    sort_column = sort_columns_map.get(sort_by, 'S.title')
     sort_direction = sort_order_map.get(sort_order, 'ASC')
     
-    # Default sort
+    # Base sort
     order_by_clause = f"ORDER BY {sort_column} {sort_direction}"
+    # Add secondary sort for song name
     if sort_by == 'song_name':
-        order_by_clause += ", ar.name ASC" # Add secondary sort
+        order_by_clause += ", A.name ASC"
+    elif sort_by == 'artist_name':
+        order_by_clause += ", S.title ASC"
         
-    base_query = """
-        SELECT s.songid, s.title as song_name, ar.name as artist_name, al.title as album_name, 
-               g.name as genre_name, s.length, s.releaseyear, s.listencount
-        FROM "song" s
-        JOIN "artist" ar ON s.artistid = ar.artistid
-        JOIN "album" al ON s.albumid = al.albumid
-        JOIN "genre" g ON s.genreid = g.genreid
+    # This subquery calculates the listen count for each song
+    listen_count_subquery = """
+        (SELECT COUNT(*) FROM "plays" P WHERE P.songid = S.songid) AS listencount
+    """
+    
+    # This query is complex because it must join all M-M tables
+    base_query = f"""
+        SELECT DISTINCT
+            S.songid, 
+            S.title AS song_name, 
+            S.length, 
+            S.releaseyear,
+            A.name AS artist_name, 
+            AL.title AS album_name, 
+            AL.albumid,
+            G.genretype AS genre_name,
+            {listen_count_subquery}
+        FROM "sonh" S
+        JOIN "performs" P ON S.songid = P.songid
+        JOIN "artist" A ON P.artistid = A.artistid
+        JOIN "contains" C ON S.songid = C.songid
+        JOIN "album" AL ON C.albumid = AL.albumid
+        JOIN "has" H ON S.songid = H.songid
+        JOIN "genre" G ON H.genreid = G.genreid
     """
     
     where_clause = ""
     params = ()
-    search_pattern = f"%{search_term}%"
+    search_pattern = f"%{search_term}%" # ILIKE is case-insensitive
 
     if search_type == 'song':
-        where_clause = "WHERE s.title ILIKE %s"
+        where_clause = "WHERE S.title ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'artist':
-        where_clause = "WHERE ar.name ILIKE %s"
+        where_clause = "WHERE A.name ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'album':
-        where_clause = "WHERE al.title ILIKE %s"
+        where_clause = "WHERE AL.title ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'genre':
-        where_clause = "WHERE g.name ILIKE %s"
+        where_clause = "WHERE G.genretype ILIKE %s"
         params = (search_pattern,)
     else:
         return [] # Invalid search type
@@ -405,8 +488,8 @@ def play_song(song_id, user_id):
     
     Returns: True if the song is played, and False otherwise.
     """
-    sql_log = 'INSERT INTO "user_song_play" (userid, songid, playtimestamp) VALUES (%s, %s, %s)'
-    sql_count = 'UPDATE "song" SET listencount = listencount + 1 WHERE songid = %s'
+    sql_log = 'INSERT INTO "plays" (userid, songid, playtimestamp) VALUES (%s, %s, %s)'
+    
     now = datetime.now()
     
     try:
@@ -431,39 +514,133 @@ def play_collection(collection_id, user_id):
     
     Returns: number of songs played in the collection.
     """
-    # Check if user owns the collection
-    sql_check = 'SELECT 1 FROM "collection" WHERE collectionid = %s AND userid = %s'
-    
+
     # Log plays for all songs in the collection
     sql_log_all = """
-        INSERT INTO "user_song_play" (userid, songid, playtimestamp)
+        INSERT INTO "plays" (userid, songid, playdate)
         SELECT %s, songid, %s
-        FROM "collection_song"
-        WHERE collectionid = %s
-    """
-    # Increment counts for all songs in the collection
-    sql_count_all = """
-        UPDATE "song"
-        SET listencount = listencount + 1
-        WHERE songid IN (SELECT songid FROM "collection_song" WHERE collectionid = %s)
+        FROM "consists_of"
+        WHERE userid = %s AND title = %s
     """
     now = datetime.now()
     
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
-                curs.execute(sql_check, (collection_id, user_id))
-                if curs.fetchone() is None:
-                    return 0 # User does not own this
-                
-                curs.execute(sql_log_all, (user_id, now, collection_id))
+                curs.execute(sql_log_all, (user_id, now, user_id, collection_title))
                 played_count = curs.rowcount # Get how many songs were logged
-                
-                curs.execute(sql_count_all, (collection_id,))
                 conn.commit()
-                
                 return played_count
     except Exception as e:
         print(f"Failed to play collection: {e}")
-        conn.rollback()
         return 0
+
+def rate_song(user_id, song_id, rating):
+    """
+    Inserts or updates a user's rating for a song.
+    Enforces that the rating must be between 1 and 5.
+    """
+    try:
+        rating_val = int(rating)
+        if not 1 <= rating_val <= 5:
+            print("Invalid rating value. Must be 1-5.")
+            return False
+    except ValueError:
+        print("Invalid rating value. Must be an integer.")
+        return False
+
+    # Use ON CONFLICT to either INSERT a new rating or UPDATE an existing one
+    sql = """
+        INSERT INTO "rates" (userid, songid, rating)
+        VALUES (%s, %s, %s)
+        ON CONFLICT (userid, songid)
+        DO UPDATE SET rating = EXCLUDED.rating
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql, (user_id, song_id, rating_val))
+                conn.commit()
+                return True
+    except Exception as e:
+        print(f"Failed to rate song: {e}")
+        return False
+    
+def get_all_users_to_follow(user_id):
+    """
+    Gets a list of all users *except* the currently logged-in one.
+    Also checks if the logged-in user is already following each user.
+    """
+    sql = """
+        SELECT U.userid, U.username, U.email,
+               CASE WHEN F.follower IS NOT NULL THEN true ELSE false END as is_following
+        FROM "users" U
+        LEFT JOIN "follows" F ON U.userid = F.followee AND F.follower = %s
+        WHERE U.userid != %s
+        ORDER BY U.username
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql, (user_id, user_id))
+                return curs.fetchall()
+    except Exception as e:
+        print(f"Failed to get all users: {e}")
+        return []
+
+def search_users_by_email(user_id, email_term):
+    """
+    Searches for users by email, excluding the logged-in user.
+    """
+    sql = """
+        SELECT U.userid, U.username, U.email,
+               CASE WHEN F.follower IS NOT NULL THEN true ELSE false END as is_following
+        FROM "users" U
+        LEFT JOIN "follows" F ON U.userid = F.followee AND F.follower = %s
+        WHERE U.userid != %s AND U.email ILIKE %s
+        ORDER BY U.username
+    """
+    search_pattern = f"%{email_term}%"
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql, (user_id, user_id, search_pattern))
+                return curs.fetchall()
+    except Exception as e:
+        print(f"Failed to search users: {e}")
+        return []
+
+def follow_user(follower_id, followee_id):
+    """
+Additional-Instructions: 
+    Adds a record to the "FOLLOWS" table.
+    """
+    # Prevent users from following themselves
+    if follower_id == followee_id:
+        return False
+        
+    sql = 'INSERT INTO "follows" (follower, followee) VALUES (%s, %s) ON CONFLICT DO NOTHING'
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql, (follower_id, followee_id))
+                conn.commit()
+                return True
+    except Exception as e:
+        print(f"Failed to follow user: {e}")
+        return False
+
+def unfollow_user(follower_id, followee_id):
+    """
+    Removes a record from the "FOLLOWS" table.
+    """
+    sql = 'DELETE FROM "followers" WHERE follower = %s AND followee = %s'
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql, (follower_id, followee_id))
+                conn.commit()
+                return True
+    except Exception as e:
+        print(f"Failed to unfollow user: {e}")
+        return False
