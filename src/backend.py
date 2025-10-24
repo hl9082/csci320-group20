@@ -152,7 +152,7 @@ def get_collection_details(collection_id, user_id):
     Returns collection's details, and None if not exists.
     """
     collection_info = {
-        'title': collection_title,
+        'title': collection_id,
         'songs': []
     }
     
@@ -180,12 +180,12 @@ def get_collection_details(collection_id, user_id):
     try:
         conn = get_db_connection()
         with conn.cursor() as curs:
-            curs.execute(sql_songs, (user_id, user_id, collection_title))
+            curs.execute(sql_songs, (user_id, user_id, collection_id))
             songs = curs.fetchall()
             
             if not songs:
                 # Check if the collection *exists* but is just empty
-                curs.execute('SELECT 1 FROM "collection" WHERE userid = %s AND title = %s', (user_id, collection_title))
+                curs.execute('SELECT 1 FROM "collection" WHERE userid = %s AND title = %s', (user_id, collection_id))
                 if curs.fetchone() is None:
                     return None # Collection doesn't exist at all
             
@@ -274,7 +274,7 @@ def delete_collection(collection_id, user_id):
         if conn:
             conn.close()
     
-def update_collection_stats(conn, user_id, collection_title):
+def update_collection_stats(conn, user_id, collection_id):
     """
     Private helper function to update a collection's song count and total length.
     This should be called *within* a transaction.
@@ -296,7 +296,7 @@ def update_collection_stats(conn, user_id, collection_title):
         WHERE C.userid = %s AND C.title = %s;
     """
     with conn.cursor() as curs:
-        curs.execute(sql_update_stats, (user_id, collection_title, user_id, collection_title))
+        curs.execute(sql_update_stats, (user_id, collection_id, user_id, collection_id))
 
 # --- Song and Search Management ---
 
@@ -319,10 +319,10 @@ def add_song_to_collection(collection_id, song_id, user_id):
         with get_db_connection() as conn:
             with conn.cursor() as curs:
                 # Insert the song into the bridge table
-                curs.execute(sql_insert, (user_id, collection_title, song_id))
+                curs.execute(sql_insert, (user_id, collection_id, song_id))
             
             # Update the collection stats in the same transaction
-            update_collection_stats(conn, user_id, collection_title)
+            update_collection_stats(conn, user_id, collection_id)
             
             conn.commit()
             return True
@@ -341,7 +341,7 @@ def add_song_to_collection(collection_id, song_id, user_id):
         if conn:
             conn.close()
     
-def add_album_to_collection(user_id, collection_title, album_id):
+def add_album_to_collection(user_id, collection_id, album_id):
     """
     Adds all songs from a given album to a collection.
     Ignores songs that are already in the collection.
@@ -366,11 +366,11 @@ def add_album_to_collection(user_id, collection_title, album_id):
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
-                curs.execute(sql_insert_album, (user_id, collection_title, album_id, user_id, collection_title))
+                curs.execute(sql_insert_album, (user_id, collection_id, album_id, user_id, collection_id))
                 added_count = curs.rowcount # Get how many songs were inserted
             
             # Update the collection stats in the same transaction
-            update_collection_stats(conn, user_id, collection_title)
+            update_collection_stats(conn, user_id, collection_id)
             
             conn.commit()
             return added_count
@@ -399,12 +399,12 @@ def remove_song_from_collection(collection_id, song_id, user_id):
         with get_db_connection() as conn:
             with conn.cursor() as curs:
                 # Delete the song from the bridge table
-                curs.execute(sql_delete, (user_id, collection_title, song_id))
+                curs.execute(sql_delete, (user_id, collection_id, song_id))
                 deleted_count = curs.rowcount
             
             if deleted_count > 0:
                 # Update stats only if a song was actually deleted
-                update_collection_stats(conn, user_id, collection_title)
+                update_collection_stats(conn, user_id, collection_id)
             
             conn.commit()
             return deleted_count > 0
@@ -566,7 +566,7 @@ def play_collection(collection_id, user_id):
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
-                curs.execute(sql_log_all, (user_id, now, user_id, collection_title))
+                curs.execute(sql_log_all, (user_id, now, user_id, collection_id))
                 played_count = curs.rowcount # Get how many songs were logged
                 conn.commit()
                 return played_count

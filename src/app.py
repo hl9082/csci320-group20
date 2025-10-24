@@ -168,8 +168,8 @@ def create_collection():
             
     return redirect(url_for('collections'))
 
-@app.route('/collections/<string:collection_title>')
-def collection_details(collection_title):
+@app.route('/collections/<string:collection_id>')
+def collection_details(collection_id):
     """
     Displays the details and list of songs for a specific collection.
     Identifies the collection by its title.
@@ -177,7 +177,7 @@ def collection_details(collection_title):
     if not is_logged_in():
         return redirect(url_for('login'))
         
-    details = backend.get_collection_details(session['user_id'], collection_title)
+    details = backend.get_collection_details(session['user_id'], collection_id)
     
     if not details:
         flash('Collection not found.', 'danger')
@@ -199,10 +199,10 @@ def rename_collection():
     if old_title and new_title:
         if backend.rename_collection(session['user_id'], old_title, new_title):
             flash('Collection renamed successfully.', 'success')
-            return redirect(url_for('collection_details', collection_title=new_title))
+            return redirect(url_for('collection_details', collection_id=new_title))
         else:
             flash('Failed to rename collection. Does a collection with the new name already exist?', 'danger')
-            return redirect(url_for('collection_details', collection_title=old_title))
+            return redirect(url_for('collection_details', collection_id=old_title))
             
     return redirect(url_for('collections'))
 
@@ -231,20 +231,20 @@ def add_song_to_collection():
     if not is_logged_in():
         return redirect(url_for('login'))
 
-    collection_title = request.form.get('collection_title')
+    collection_id = request.form.get('collection_id')
     song_id = request.form.get('song_id')
     album_id = request.form.get('album_id') # For adding an album
 
-    if song_id and collection_title:
+    if song_id and collection_id:
         # Add a single song
-        if backend.add_song_to_collection(session['user_id'], collection_title, song_id):
+        if backend.add_song_to_collection(session['user_id'], collection_id, song_id):
             flash('Song added to collection.', 'success')
         else:
             flash('Song is already in that collection.', 'warning')
             
-    elif album_id and collection_title:
+    elif album_id and collection_id:
         # Add all songs from an album
-        added_count = backend.add_album_to_collection(session['user_id'], collection_title, album_id)
+        added_count = backend.add_album_to_collection(session['user_id'], collection_id, album_id)
         if added_count > 0:
             flash(f'Added {added_count} songs from the album.', 'success')
         else:
@@ -264,14 +264,14 @@ def remove_song_from_collection():
     if not is_logged_in():
         return redirect(url_for('login'))
             
-    collection_title = request.form.get('collection_title')
+    collection_id = request.form.get('collection_id')
     song_id = request.form.get('song_id')
     
-    if collection_title and song_id:
-        backend.remove_song_from_collection(session['user_id'], collection_title, song_id)
+    if collection_id and song_id:
+        backend.remove_song_from_collection(session['user_id'], collection_id, song_id)
         flash('Song removed from collection.', 'info')
             
-    return redirect(url_for('collection_details', collection_title=collection_title))
+    return redirect(url_for('collection_details', collection_id=collection_id))
 
 @app.route('/play/song/<int:song_id>', methods=['POST'])
 def play_song_route(song_id):
@@ -287,22 +287,22 @@ def play_song_route(song_id):
     # Redirect back to the page the user was on
     return redirect(request.referrer or url_for('dashboard'))
 
-@app.route('/play/collections/<string:collection_title>', methods=['POST'])
-def play_collection_route(collection_title):
+@app.route('/play/collections/<string:collection_id>', methods=['POST'])
+def play_collection_route(collection_id):
     """
     Logs that a user "played" all songs in a collection.
     """
     if not is_logged_in():
         return redirect(url_for('login'))
         
-    played_count = backend.play_collection(session['user_id'], collection_title)
+    played_count = backend.play_collection(session['user_id'], collection_id)
     
     if played_count > 0:
         flash(f'Logged play for {played_count} songs in the collection.', 'success')
     else:
         flash('Could not play collection. Do you own it?', 'danger')
         
-    return redirect(url_for('collection_details', collection_title=collection_title))
+    return redirect(url_for('collection_details', collection_id=collection_id))
 
 @app.route('/rate/song', methods=['POST'])
 def rate_song_route():
