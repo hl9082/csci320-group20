@@ -109,7 +109,7 @@ def get_collection_details(user_id, collection_title):
     
     sql_songs = """
         SELECT 
-            S.SongID, S.Title AS SongTitle, S.Length, S.ReleaseYear,
+            S.SongID, S.Title AS SongTitle, S.Length, S.ReleaseDate,
             A.Name AS ArtistName,
             AL.Title AS AlbumTitle, AL.AlbumID,
             G.GenreType AS GenreName,
@@ -321,7 +321,7 @@ def search_songs(search_term, search_type, sort_by, sort_order):
         'song_name': 'S.Title',
         'artist_name': 'A.Name',
         'genre_name': 'G.GenreType',
-        'releaseyear': 'S.ReleaseYear'
+        'ReleaseDate': 'S.ReleaseDate'
     }
     sort_order_map = {'ASC': 'ASC', 'DESC': 'DESC'}
 
@@ -347,7 +347,7 @@ def search_songs(search_term, search_type, sort_by, sort_order):
             S.SongID, 
             S.Title AS song_name, 
             S.Length, 
-            S.ReleaseYear,
+            S.ReleaseDate,
             A.Name AS artist_name, 
             AL.Title AS album_name, 
             AL.AlbumID,
