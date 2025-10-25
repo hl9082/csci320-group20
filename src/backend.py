@@ -121,7 +121,7 @@ def get_collection_details(user_id, collection_title):
         LEFT JOIN "contains" C ON S.SongID = C.SongID
         LEFT JOIN "album" AL ON C.AlbumID = AL.AlbumID
         LEFT JOIN "has" H ON S.SongID = H.SongID
-        LEFT JOIN "genre" G ON H.GenreID = G.GenreID
+        LEFT JOIN "genres" G ON H.GenreID = G.GenreID
         LEFT JOIN "RATES" R ON S.SongID = R.SongID AND R.UserID = %s
         WHERE CO.UserID = %s AND CO.Title = %s
         ORDER BY S.Title
@@ -359,7 +359,7 @@ def search_songs(search_term, search_type, sort_by, sort_order):
         LEFT JOIN "contains" C ON S.SongID = C.SongID
         LEFT JOIN "album" AL ON C.AlbumID = AL.AlbumID
         LEFT JOIN "has" H ON S.SongID = H.SongID
-        LEFT JOIN "genre" G ON H.GenreID = G.GenreID
+        LEFT JOIN "genres" G ON H.GenreID = G.GenreID
     """
     
     where_clause = ""
