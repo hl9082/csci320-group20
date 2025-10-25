@@ -10,6 +10,13 @@ This module contains all the functions that interact with the database.
           web application's routing logic.
 '''
 # --- Imports ---
+from datetime import datetime  # Used to generate timestamps for creation and last access dates.
+from db_connector import get_db_connection  # Imports the connection manager from our connector file.
+import psycopg2  # Imported specifically to catch psycopg2-related exceptions.
+from psycopg2.extras import DictCursor # Ensures we can access results by column name
+
+# --- User Management ---
+
 def create_user(username, password, first_name, last_name, email):
     """
     Creates a new user with a PLAINTEXT password.
