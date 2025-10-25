@@ -9,7 +9,6 @@ This module contains all the functions that interact with the database.
           It serves as the data access layer, separating SQL logic from the
           web application's routing logic.
 '''
-# --- Imports ---
 from datetime import datetime  # Used to generate timestamps for creation and last access dates.
 from db_connector import get_db_connection  # Imports the connection manager from our connector file.
 import psycopg2  # Imported specifically to catch psycopg2-related exceptions.
@@ -21,12 +20,13 @@ def create_user(username, password, first_name, last_name, email):
     """
     Creates a new user with a PLAINTEXT password.
     Records creation and last access time.
+    Schema-Compliant: Uses "USER" table.
     """
     now = datetime.now()
     sql = """
-        INSERT INTO "users" (username, password, firstname, lastname, email, creationdate, lastaccessdate)
+        INSERT INTO "USER" (Username, Password, FirstName, LastName, Email, CreationDate, LastAccessDate)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
-        RETURNING userid
+        RETURNING UserID
     """
     try:
         # Use the context manager to get a connection
@@ -48,9 +48,10 @@ def login_user(username, password):
     """
     Logs a user in by checking their PLAINTEXT password.
     Updates the LastAccessDate on successful login.
+    Schema-Compliant: Uses "USER" table.
     """
-    sql_select = 'SELECT userid, username, password FROM "users" WHERE username = %s'
-    sql_update_access = 'UPDATE "users" SET lastaccessdate = %s WHERE userid = %s'
+    sql_select = 'SELECT UserID, Username, Password FROM "USER" WHERE Username = %s'
+    sql_update_access = 'UPDATE "USER" SET LastAccessDate = %s WHERE UserID = %s'
     
     now = datetime.now()
     try:
@@ -84,9 +85,9 @@ def login_user(username, password):
 def get_user_collections(user_id):
     """
     Gets all collections for a specific user.
-    Schema-Compliant: Uses exact column names.
+    Schema-Compliant: Uses "COLLECTION" table.
     """
-    sql = 'SELECT title, numberofsongs, length FROM "collection" WHERE userid = %s ORDER BY title ASC'
+    sql = 'SELECT Title, NumberOfSongs, Length FROM "COLLECTION" WHERE UserID = %s ORDER BY Title ASC'
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -99,33 +100,31 @@ def get_user_collections(user_id):
 def get_collection_details(user_id, collection_title):
     """
     Gets a specific collection's info AND all songs within it.
-    Schema-Compliant: Identifies collection by (UserID, Title) and uses LEFT JOINs
-    to include songs even if they are missing album/genre data.
+    Schema-Compliant: Identifies collection by (UserID, Title) and uses all bridge tables.
     """
     collection_info = {
         'title': collection_title,
         'songs': []
     }
     
-    # Get all songs in that collection
     sql_songs = """
         SELECT 
-            S.songid, S.title AS SongTitle, S.Length, S.ReleaseYear,
-            A.name AS ArtistName,
-            AL.title AS AlbumTitle, AL.albumid,
-            G.genretype AS GenreName,
-            R.rating
-        FROM "consists_of" CO
-        JOIN "song" S ON S.songid = CO.songid
-        LEFT JOIN "performs" P ON S.songid = P.songid
-        LEFT JOIN "artist" A ON P.artistid = A.artistid
-        LEFT JOIN "contains" C ON S.songid = C.songid
-        LEFT JOIN "album" AL ON C.albumid = AL.albumid
-        LEFT JOIN "has" H ON S.songid = H.songid
-        LEFT JOIN "genre" G ON H.genreid = G.genreid
-        LEFT JOIN "rates" R ON S.songid = R.songid AND R.userid = %s
-        WHERE CO.userid = %s AND CO.title = %s
-        ORDER BY S.title
+            S.SongID, S.Title AS SongTitle, S.Length, S.ReleaseYear,
+            A.Name AS ArtistName,
+            AL.Title AS AlbumTitle, AL.AlbumID,
+            G.GenreType AS GenreName,
+            R.Rating
+        FROM "CONSISTS_OF" CO
+        JOIN "SONG" S ON S.SongID = CO.SongID
+        LEFT JOIN "PERFORMS" P ON S.SongID = P.SongID
+        LEFT JOIN "ARTIST" A ON P.ArtistID = A.ArtistID
+        LEFT JOIN "CONTAINS" C ON S.SongID = C.SongID
+        LEFT JOIN "ALBUM" AL ON C.AlbumID = AL.AlbumID
+        LEFT JOIN "HAS" H ON S.SongID = H.SongID
+        LEFT JOIN "GENRE" G ON H.GenreID = G.GenreID
+        LEFT JOIN "RATES" R ON S.SongID = R.SongID AND R.UserID = %s
+        WHERE CO.UserID = %s AND CO.Title = %s
+        ORDER BY S.Title
     """
     try:
         with get_db_connection() as conn:
@@ -135,7 +134,7 @@ def get_collection_details(user_id, collection_title):
                 
                 if not songs:
                     # Check if the collection *exists* but is just empty
-                    curs.execute('SELECT 1 FROM "collection" WHERE userid = %s AND title = %s', (user_id, collection_title))
+                    curs.execute('SELECT 1 FROM "COLLECTION" WHERE UserID = %s AND Title = %s', (user_id, collection_title))
                     if curs.fetchone() is None:
                         return None # Collection doesn't exist at all
                 
@@ -151,7 +150,7 @@ def create_collection(user_id, title):
     Creates a new, empty collection.
     Schema-Compliant: Uses (UserID, Title) as primary key.
     """
-    sql = 'INSERT INTO "collection" (userid, title, numberofsongs, length) VALUES (%s, %s, 0, 0)'
+    sql = 'INSERT INTO "COLLECTION" (UserID, Title, NumberOfSongs, Length) VALUES (%s, %s, 0, 0)'
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -170,7 +169,7 @@ def rename_collection(user_id, old_title, new_title):
     Renames a user's collection.
     Schema-Compliant: Updates "COLLECTION" table based on (UserID, OldTitle).
     """
-    sql = 'UPDATE "collection" SET title = %s WHERE userid = %s AND title = %s'
+    sql = 'UPDATE "COLLECTION" SET Title = %s WHERE UserID = %s AND Title = %s'
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -188,9 +187,8 @@ def delete_collection(user_id, title):
     """
     Deletes a user's collection.
     Schema-Compliant: Deletes from "COLLECTION" using (UserID, Title).
-    The "CONSISTS_OF" entries are deleted automatically by "ON DELETE CASCADE".
     """
-    sql = 'DELETE FROM "collection" WHERE userid = %s AND title = %s'
+    sql = 'DELETE FROM "COLLECTION" WHERE UserID = %s AND Title = %s'
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -211,18 +209,18 @@ def _update_collection_stats(curs, user_id, collection_title):
     sql_update_stats = """
         WITH Stats AS (
             SELECT
-                COUNT(S.songid) AS SongCount,
-                COALESCE(SUM(S.length), 0) AS TotalLength
-            FROM "consists_of" CO
-            JOIN "song" S ON CO.songid = S.songid
-            WHERE CO.userid = %s AND CO.title = %s
+                COUNT(S.SongID) AS SongCount,
+                COALESCE(SUM(S.Length), 0) AS TotalLength
+            FROM "CONSISTS_OF" CO
+            JOIN "SONG" S ON CO.SongID = S.SongID
+            WHERE CO.UserID = %s AND CO.Title = %s
         )
-        UPDATE "collection" C
+        UPDATE "COLLECTION" C
         SET
-            numberofsongs = S.SongCount,
-            length = S.TotalLength
+            NumberOfSongs = S.SongCount,
+            Length = S.TotalLength
         FROM Stats S
-        WHERE C.userid = %s AND C.title = %s;
+        WHERE C.UserID = %s AND C.Title = %s;
     """
     curs.execute(sql_update_stats, (user_id, collection_title, user_id, collection_title))
 
@@ -232,7 +230,7 @@ def add_song_to_collection(user_id, collection_title, song_id):
     Adds a single song to a collection.
     Schema-Compliant: Inserts into "CONSISTS_OF" and updates "COLLECTION" stats.
     """
-    sql_insert = 'INSERT INTO "consists_of" (userid, title, songid) VALUES (%s, %s, %s)'
+    sql_insert = 'INSERT INTO "CONSISTS_OF" (UserID, Title, SongID) VALUES (%s, %s, %s)'
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -261,16 +259,16 @@ def add_album_to_collection(user_id, collection_title, album_id):
     Returns the number of *new* songs added.
     """
     sql_insert_album = """
-        INSERT INTO "consists_of" (userid, title, songid)
-        SELECT %s, %s, C.songid
-        FROM "contains" C
-        WHERE C.albumid = %s
+        INSERT INTO "CONSISTS_OF" (UserID, Title, SongID)
+        SELECT %s, %s, C.SongID
+        FROM "CONTAINS" C
+        WHERE C.AlbumID = %s
         AND NOT EXISTS (
             SELECT 1
-            FROM "consists_of" CO
-            WHERE CO.userid = %s
-            AND CO.title = %s
-            AND CO.songid = C.songid
+            FROM "CONSISTS_OF" CO
+            WHERE CO.UserID = %s
+            AND CO.Title = %s
+            AND CO.SongID = C.SongID
         )
     """
     try:
@@ -294,7 +292,7 @@ def remove_song_from_collection(user_id, collection_title, song_id):
     Removes a single song from a collection.
     Schema-Compliant: Deletes from "CONSISTS_OF" and updates "COLLECTION" stats.
     """
-    sql_delete = 'DELETE FROM "consists_of" WHERE userid = %s AND title = %s AND songid = %s'
+    sql_delete = 'DELETE FROM "CONSISTS_OF" WHERE UserID = %s AND Title = %s AND SongID = %s'
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -320,50 +318,48 @@ def search_songs(search_term, search_type, sort_by, sort_order):
     """
     # Whitelist sort options to prevent SQL injection
     sort_columns_map = {
-        'song_name': 'S.title',
-        'artist_name': 'A.name',
-        'genre_name': 'G.genretype',
-        'releaseyear': 'S.releaseyear'
+        'song_name': 'S.Title',
+        'artist_name': 'A.Name',
+        'genre_name': 'G.GenreType',
+        'releaseyear': 'S.ReleaseYear'
     }
     sort_order_map = {'ASC': 'ASC', 'DESC': 'DESC'}
 
     # Default to safe values if inputs are invalid
-    sort_column = sort_columns_map.get(sort_by, 'S.title')
+    sort_column = sort_columns_map.get(sort_by, 'S.Title')
     sort_direction = sort_order_map.get(sort_order, 'ASC')
     
     # Base sort
     order_by_clause = f"ORDER BY {sort_column} {sort_direction}"
     # Add secondary sort for song name
     if sort_by == 'song_name':
-        order_by_clause += ", A.name ASC"
+        order_by_clause += ", A.Name ASC"
     elif sort_by == 'artist_name':
-        order_by_clause += ", S.title ASC"
+        order_by_clause += ", S.Title ASC"
         
     # This subquery calculates the listen count for each song
     listen_count_subquery = """
-        (SELECT COUNT(*) FROM "plays" P WHERE P.songid = S.songid) AS listencount
+        (SELECT COUNT(*) FROM "PLAYS" P WHERE P.SongID = S.SongID) AS listencount
     """
     
-    # Use LEFT JOINs to ensure songs are found even if they
-    # are missing an album, artist, or genre.
     base_query = f"""
         SELECT DISTINCT
-            S.songid, 
-            S.title AS song_name, 
-            S.length, 
-            S.releaseyear,
-            A.name AS artist_name, 
-            AL.title AS album_name, 
-            AL.albumid,
-            G.genretype AS genre_name,
+            S.SongID, 
+            S.Title AS song_name, 
+            S.Length, 
+            S.ReleaseYear,
+            A.Name AS artist_name, 
+            AL.Title AS album_name, 
+            AL.AlbumID,
+            G.GenreType AS genre_name,
             {listen_count_subquery}
-        FROM "song" S
-        LEFT JOIN "performs" P ON S.songid = P.songid
-        LEFT JOIN "artist" A ON P.artistid = A.artistid
-        LEFT JOIN "contains" C ON S.songid = C.songid
-        LEFT JOIN "album" AL ON C.albumid = AL.albumid
-        LEFT JOIN "has" H ON S.songid = H.songid
-        LEFT JOIN "genre" G ON H.genreid = G.genreid
+        FROM "SONG" S
+        LEFT JOIN "PERFORMS" P ON S.SongID = P.SongID
+        LEFT JOIN "ARTIST" A ON P.ArtistID = A.ArtistID
+        LEFT JOIN "CONTAINS" C ON S.SongID = C.SongID
+        LEFT JOIN "ALBUM" AL ON C.AlbumID = AL.AlbumID
+        LEFT JOIN "HAS" H ON S.SongID = H.SongID
+        LEFT JOIN "GENRE" G ON H.GenreID = G.GenreID
     """
     
     where_clause = ""
@@ -371,16 +367,16 @@ def search_songs(search_term, search_type, sort_by, sort_order):
     search_pattern = f"%{search_term}%" # ILIKE is case-insensitive
 
     if search_type == 'song':
-        where_clause = "WHERE S.title ILIKE %s"
+        where_clause = "WHERE S.Title ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'artist':
-        where_clause = "WHERE A.name ILIKE %s"
+        where_clause = "WHERE A.Name ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'album':
-        where_clause = "WHERE AL.title ILIKE %s"
+        where_clause = "WHERE AL.Title ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'genre':
-        where_clause = "WHERE G.genretype ILIKE %s"
+        where_clause = "WHERE G.GenreType ILIKE %s"
         params = (search_pattern,)
     else:
         return [] # Invalid search type
@@ -402,7 +398,7 @@ def play_song(song_id, user_id):
     Logs that a user played a song.
     Schema-Compliant: Inserts a record into "PLAYS".
     """
-    sql_log = 'INSERT INTO "plays" (userid, songid, playdate) VALUES (%s, %s, %s)'
+    sql_log = 'INSERT INTO "PLAYS" (UserID, SongID, PlayDate) VALUES (%s, %s, %s)'
     now = datetime.now()
     try:
         with get_db_connection() as conn:
@@ -420,10 +416,10 @@ def play_collection(user_id, collection_title):
     Schema-Compliant: Inserts multiple rows into "PLAYS".
     """
     sql_log_all = """
-        INSERT INTO "plays" (userid, songid, playdate)
-        SELECT %s, songid, %s
-        FROM "consists_of"
-        WHERE userid = %s AND title = %s
+        INSERT INTO "PLAYS" (UserID, SongID, PlayDate)
+        SELECT %s, SongID, %s
+        FROM "CONSISTS_OF"
+        WHERE UserID = %s AND Title = %s
     """
     now = datetime.now()
     try:
@@ -451,12 +447,11 @@ def rate_song(user_id, song_id, rating):
         print("Invalid rating value. Must be an integer.")
         return False
 
-    # Use ON CONFLICT to either INSERT a new rating or UPDATE an existing one
     sql = """
-        INSERT INTO "rates" (userid, songid, rating)
+        INSERT INTO "RATES" (UserID, SongID, Rating)
         VALUES (%s, %s, %s)
-        ON CONFLICT (userid, songid)
-        DO UPDATE SET rating = EXCLUDED.rating
+        ON CONFLICT (UserID, SongID)
+        DO UPDATE SET Rating = EXCLUDED.Rating
     """
     try:
         with get_db_connection() as conn:
@@ -474,12 +469,12 @@ def get_all_users_to_follow(user_id):
     Also checks if the logged-in user is already following each user.
     """
     sql = """
-        SELECT U.userid, U.username, U.email,
-               CASE WHEN F.follower IS NOT NULL THEN true ELSE false END as is_following
-        FROM "users" U
-        LEFT JOIN "follows" F ON U.userid = F.followee AND F.follower = %s
-        WHERE U.userid != %s
-        ORDER BY U.username
+        SELECT U.UserID, U.Username, U.Email,
+               CASE WHEN F.Follower IS NOT NULL THEN true ELSE false END as is_following
+        FROM "USER" U
+        LEFT JOIN "FOLLOWS" F ON U.UserID = F.Followee AND F.Follower = %s
+        WHERE U.UserID != %s
+        ORDER BY U.Username
     """
     try:
         with get_db_connection() as conn:
@@ -495,12 +490,12 @@ def search_users_by_email(user_id, email_term):
     Searches for users by email, excluding the logged-in user.
     """
     sql = """
-        SELECT U.userid, U.username, U.email,
-               CASE WHEN F.follower IS NOT NULL THEN true ELSE false END as is_following
-        FROM "users" U
-        LEFT JOIN "follows" F ON U.userid = F.followee AND F.follower = %s
-        WHERE U.userid != %s AND U.email ILIKE %s
-        ORDER BY U.username
+        SELECT U.UserID, U.Username, U.Email,
+               CASE WHEN F.Follower IS NOT NULL THEN true ELSE false END as is_following
+        FROM "USER" U
+        LEFT JOIN "FOLLOWS" F ON U.UserID = F.Followee AND F.Follower = %s
+        WHERE U.UserID != %s AND U.Email ILIKE %s
+        ORDER BY U.Username
     """
     search_pattern = f"%{email_term}%"
     try:
@@ -520,7 +515,7 @@ def follow_user(follower_id, followee_id):
     if follower_id == followee_id:
         return False
         
-    sql = 'INSERT INTO "follows" (follower, followee) VALUES (%s, %s) ON CONFLICT DO NOTHING'
+    sql = 'INSERT INTO "FOLLOWS" (Follower, Followee) VALUES (%s, %s) ON CONFLICT DO NOTHING'
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -535,7 +530,7 @@ def unfollow_user(follower_id, followee_id):
     """
     Removes a record from the "FOLLOWS" table.
     """
-    sql = 'DELETE FROM "follows" WHERE follower = %s AND followee = %s'
+    sql = 'DELETE FROM "FOLLOWS" WHERE Follower = %s AND Followee = %s'
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
