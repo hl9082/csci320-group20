@@ -205,7 +205,7 @@ def collection_details(collection_title):
         flash('Collection not found.', 'danger')
         return redirect(url_for('collections'))
         
-    return render_template('collection_details.html', collection=details)
+    return render_template('collectiondetails.html', collection=details)
 
 @app.route('/collection/rename', methods=['POST'])
 def rename_collection():
