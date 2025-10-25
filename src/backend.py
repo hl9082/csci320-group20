@@ -106,12 +106,12 @@ def get_collection_details(user_id, collection_title):
         'title': collection_title,
         'songs': []
     }
-    
+   
     sql_songs = """
         SELECT 
-            S.SongID, S.Title AS SongTitle, S.Length, S.ReleaseYear,
+            S.SongID, S.Title AS SongTitle, S.Length, S.ReleaseDate,
             A.Name AS ArtistName,
-            AL.Title AS AlbumTitle, AL.AlbumID,
+            AL.Name AS AlbumTitle, AL.AlbumID,
             G.GenreType AS GenreName,
             R.Rating
         FROM "consists_of" CO
@@ -122,7 +122,7 @@ def get_collection_details(user_id, collection_title):
         LEFT JOIN "album" AL ON C.AlbumID = AL.AlbumID
         LEFT JOIN "has" H ON S.SongID = H.SongID
         LEFT JOIN "genres" G ON H.GenreID = G.GenreID
-        LEFT JOIN "RATES" R ON S.SongID = R.SongID AND R.UserID = %s
+        LEFT JOIN "rates" R ON S.SongID = R.SongID AND R.UserID = %s
         WHERE CO.UserID = %s AND CO.Title = %s
         ORDER BY S.Title
     """
@@ -321,7 +321,7 @@ def search_songs(search_term, search_type, sort_by, sort_order):
         'song_name': 'S.Title',
         'artist_name': 'A.Name',
         'genre_name': 'G.GenreType',
-        'releaseyear': 'S.ReleaseYear'
+        'ReleaseDate': 'S.ReleaseDate'
     }
     sort_order_map = {'ASC': 'ASC', 'DESC': 'DESC'}
 
@@ -347,9 +347,9 @@ def search_songs(search_term, search_type, sort_by, sort_order):
             S.SongID, 
             S.Title AS song_name, 
             S.Length, 
-            S.ReleaseYear,
+            S.ReleaseDate,
             A.Name AS artist_name, 
-            AL.Title AS album_name, 
+            AL.Name AS album_name, 
             AL.AlbumID,
             G.GenreType AS genre_name,
             {listen_count_subquery}
@@ -373,7 +373,7 @@ def search_songs(search_term, search_type, sort_by, sort_order):
         where_clause = "WHERE A.Name ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'album':
-        where_clause = "WHERE AL.Title ILIKE %s"
+        where_clause = "WHERE AL.Name ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'genre':
         where_clause = "WHERE G.GenreType ILIKE %s"
@@ -448,7 +448,7 @@ def rate_song(user_id, song_id, rating):
         return False
 
     sql = """
-        INSERT INTO "RATES" (UserID, SongID, Rating)
+        INSERT INTO "rates" (UserID, SongID, Rating)
         VALUES (%s, %s, %s)
         ON CONFLICT (UserID, SongID)
         DO UPDATE SET Rating = EXCLUDED.Rating

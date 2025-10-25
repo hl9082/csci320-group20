@@ -135,7 +135,7 @@ def search():
     sort_order = request.args.get('order', 'ASC')   # Default order
 
     search_results = []
-    user_collections = []
+    
 
     if search_term and search_type:
         # If a search was performed, fetch results from the backend
@@ -205,7 +205,7 @@ def collection_details(collection_title):
         flash('Collection not found.', 'danger')
         return redirect(url_for('collections'))
         
-    return render_template('collection_details.html', collection=details)
+    return render_template('collectiondetails.html', collection=details)
 
 @app.route('/collection/rename', methods=['POST'])
 def rename_collection():

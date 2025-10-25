@@ -45,7 +45,7 @@
                     <option value="song_name" {% if sort == 'song_name' %}selected{% endif %}>Song Name</option>
                     <option value="artist_name" {% if sort == 'artist_name' %}selected{% endif %}>Artist Name</option>
                     <option value="genre_name" {% if sort == 'genre_name' %}selected{% endif %}>Genre</option>
-                    <option value="releaseyear" {% if sort == 'releaseyear' %}selected{% endif %}>Release Year</option>
+                    <option value="song.releasedate" {% if sort == 'song.releasedate' %}selected{% endif %}>Release Date</option>
                 </select>
                 <select name="order" class="p-2 bg-gray-600 rounded-lg text-white border border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="ASC" {% if order == 'ASC' %}selected{% endif %}>Ascending</option>
@@ -64,7 +64,7 @@
                             <th class="p-4">Album</th>
                             <th class="p-4">Genre</th>
                             <th class="p-4">Length</th>
-                            <th class="p-4">Year</th>
+                            <th class="p-4">Release Date</th>
                             <th class="p-4">Plays</th>
                             <th class="p-4">Actions</th>
                         </tr>
@@ -73,12 +73,12 @@
                         {% for song in results %}
                         <tr class="hover:bg-gray-700/50">
                             <td class="p-4 font-medium text-white">{{ song.song_name }}</td>
-                            <td class="p-4">{{ song.artist_name }}</td>
-                            <td class="p-4">{{ song.album_name }}</td>
-                            <td class="p-4">{{ song.genre_name }}</td>
-                            <td class="p-4">{{ "%.2f"|format(song.length / 60) }} min</td>
-                            <td class="p-4">{{ song.releaseyear }}</td>
-                            <td class="p-4">{{ song.listencount }}</td>
+                            <td class="p-4 font-medium text-white">{{ song.artist_name }}</td>
+                            <td class="p-4 font-medium text-white">{{ song.album_name }}</td>
+                            <td class="p-4 font-medium text-white">{{ song.genre_name }}</td>
+                            <td class="p-4 font-medium text-white">{{ "%.2f"|format(song.length / 60) }} min</td>
+                            <td class="p-4 font-medium text-white">{{ song.releasedate }}</td>
+                            <td class="p-4 font-medium text-white">{{ song.listencount }}</td>
                             <td class="p-4 space-y-3">
                                 <!-- Play Song -->
                                 <form method="POST" action="{{ url_for('play_song_route', song_id=song.songid) }}">
