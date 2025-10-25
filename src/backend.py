@@ -111,7 +111,7 @@ def get_collection_details(user_id, collection_title):
         SELECT 
             S.SongID, S.Title AS SongTitle, S.Length, S.ReleaseDate,
             A.Name AS ArtistName,
-            AL.Title AS AlbumTitle, AL.AlbumID,
+            AL.Name AS AlbumTitle, AL.AlbumID,
             G.GenreType AS GenreName,
             R.Rating
         FROM "consists_of" CO
@@ -349,7 +349,7 @@ def search_songs(search_term, search_type, sort_by, sort_order):
             S.Length, 
             S.ReleaseDate,
             A.Name AS artist_name, 
-            AL.Title AS album_name, 
+            AL.Name AS album_name, 
             AL.AlbumID,
             G.GenreType AS genre_name,
             {listen_count_subquery}
@@ -373,7 +373,7 @@ def search_songs(search_term, search_type, sort_by, sort_order):
         where_clause = "WHERE A.Name ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'album':
-        where_clause = "WHERE AL.Title ILIKE %s"
+        where_clause = "WHERE AL.Name ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'genre':
         where_clause = "WHERE G.GenreType ILIKE %s"
