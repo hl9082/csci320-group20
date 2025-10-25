@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- This block sets the browser tab title -->
     <title>{% block title %}Music App{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -28,10 +29,8 @@
                 <div class="flex h-16 items-center justify-between">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
-                            <!-- You can add a logo here -->
                             <span class="text-white font-bold text-lg">MusicDB</span>
                         </div>
-                        <!-- BEGIN FIX: Only show nav links if user is logged in -->
                         {% if session.user_id %}
                         <div class="hidden md:block">
                             <div class="ml-10 flex items-baseline space-x-4">
@@ -42,9 +41,7 @@
                             </div>
                         </div>
                         {% endif %}
-                        <!-- END FIX -->
                     </div>
-                    <!-- BEGIN FIX: Only show Welcome/Logout if user is logged in -->
                     {% if session.user_id %}
                     <div class="hidden md:block">
                         <div class="ml-4 flex items-center md:ml-6">
@@ -53,7 +50,6 @@
                         </div>
                     </div>
                     {% endif %}
-                    <!-- END FIX -->
                 </div>
             </div>
         </nav>
@@ -62,7 +58,9 @@
         <header class="bg-gray-800 shadow-inner shadow-gray-900/20">
             <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                 <h1 class="text-3xl font-bold tracking-tight text-white">
-                    {% block page_title %}{% block title %}{% endblock %}{% endblock %}
+                    <!-- BEGIN FIX: Renamed this block to page_title -->
+                    {% block page_title %}{% endblock %}
+                    <!-- END FIX -->
                 </h1>
             </div>
         </header>
