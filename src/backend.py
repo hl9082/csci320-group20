@@ -20,11 +20,11 @@ def create_user(username, password, first_name, last_name, email):
     """
     Creates a new user with a PLAINTEXT password.
     Records creation and last access time.
-    Schema-Compliant: Uses "USER" table.
+    Schema-Compliant: Uses "users" table.
     """
     now = datetime.now()
     sql = """
-        INSERT INTO "USER" (Username, Password, FirstName, LastName, Email, CreationDate, LastAccessDate)
+        INSERT INTO "users" (Username, Password, FirstName, LastName, Email, CreationDate, LastAccessDate)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING UserID
     """
@@ -48,10 +48,10 @@ def login_user(username, password):
     """
     Logs a user in by checking their PLAINTEXT password.
     Updates the LastAccessDate on successful login.
-    Schema-Compliant: Uses "USER" table.
+    Schema-Compliant: Uses "users" table.
     """
-    sql_select = 'SELECT UserID, Username, Password FROM "USER" WHERE Username = %s'
-    sql_update_access = 'UPDATE "USER" SET LastAccessDate = %s WHERE UserID = %s'
+    sql_select = 'SELECT UserID, Username, Password FROM "users" WHERE Username = %s'
+    sql_update_access = 'UPDATE "users" SET LastAccessDate = %s WHERE UserID = %s'
     
     now = datetime.now()
     try:
@@ -471,7 +471,7 @@ def get_all_users_to_follow(user_id):
     sql = """
         SELECT U.UserID, U.Username, U.Email,
                CASE WHEN F.Follower IS NOT NULL THEN true ELSE false END as is_following
-        FROM "USER" U
+        FROM "users" U
         LEFT JOIN "FOLLOWS" F ON U.UserID = F.Followee AND F.Follower = %s
         WHERE U.UserID != %s
         ORDER BY U.Username
@@ -492,7 +492,7 @@ def search_users_by_email(user_id, email_term):
     sql = """
         SELECT U.UserID, U.Username, U.Email,
                CASE WHEN F.Follower IS NOT NULL THEN true ELSE false END as is_following
-        FROM "USER" U
+        FROM "users" U
         LEFT JOIN "FOLLOWS" F ON U.UserID = F.Followee AND F.Follower = %s
         WHERE U.UserID != %s AND U.Email ILIKE %s
         ORDER BY U.Username
