@@ -10,22 +10,16 @@ This is the main Flask web application file. It defines the web routes
 (URLs), handles user requests, interacts with the backend to fetch data,
           and renders the HTML templates to display to the user.
 '''
-# --- Imports ---
-from flask import Flask, render_template, request, redirect, url_for, session, flash # Core Flask components.
-import backend # Direct import of our backend logic file.
-import os # Used for the secret key.
-from dotenv import find_dotenv, load_dotenv # Used to load environment variables.
-
-# --- App Initialization ---
+from flask import Flask, render_template, request, redirect, url_for, session, flash
+import backend # Direct import since they are in the same package
+import os
+from dotenv import find_dotenv, load_dotenv
 
 # Find and load the .env file from the root directory
 load_dotenv(find_dotenv())
 
 app = Flask(__name__)
-# Create a secret key for session management.
 app.secret_key = os.urandom(24)
-
-# --- Prerequisite Check ---
 
 # Check for credentials before starting
 if not all([os.getenv("CS_USERNAME"), os.getenv("CS_PASSWORD"), os.getenv("DB_NAME")]):
@@ -33,59 +27,44 @@ if not all([os.getenv("CS_USERNAME"), os.getenv("CS_PASSWORD"), os.getenv("DB_NA
     print("Please create a .env file in the project root with CS_USERNAME, CS_PASSWORD, and DB_NAME.")
     exit()
 
-# --- Helper Function ---
-
 def is_logged_in():
-    """
-    Checks if a user is currently logged in by looking for 'user_id' in the session.
-    
-    Returns: 
-        True if 'user_id' is in session, False otherwise.
-    """
+    '''
+    Check if we're logged in.
+    Returns: True if user_id is in session, and false if otherwise.
+    '''
     return 'user_id' in session
-
-# --- User Account Routes ---
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
-    """
-    Handles the login page.
-    - GET: Shows the login page.
-    - POST: Attempts to log the user in.
-    """
+    '''
+    Login operation.
+    Return: redirection to dashboard if already logged in. Else, render template for login.html.
+    '''
     if is_logged_in():
-        return redirect(url_for('dashboard')) # Go to dashboard if already logged in
-
+        return redirect(url_for('dashboard'))
     if request.method == 'POST':
-        # Pass login credentials to the backend
         user = backend.login_user(request.form['username'], request.form['password'])
         if user:
-            # If login is successful, store user info in the session
             session['user_id'] = user['userid']
             session['username'] = user['username']
             flash('Login successful!', 'success')
             return redirect(url_for('dashboard'))
         else:
             flash('Invalid username or password.', 'danger')
-            
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    """
-    Handles the user registration page.
-    - GET: Shows the registration form.
-    - POST: Attempts to create a new user.
-    """
+    '''
+    Register operation.
+    Returns: redirect to dashboard if already logged in. Else, render template for register.html
+    '''
     if is_logged_in():
         return redirect(url_for('dashboard'))
-
     if request.method == 'POST':
         user_id = backend.create_user(
-            username=request.form['username'], 
-            password=request.form['password'],
-            first_name=request.form['first_name'], 
-            last_name=request.form['last_name'],
+            username=request.form['username'], password=request.form['password'],
+            first_name=request.form['first_name'], last_name=request.form['last_name'],
             email=request.form['email']
         )
         if user_id:
@@ -93,38 +72,37 @@ def register():
             return redirect(url_for('login'))
         else:
             flash('Username or email already exists.', 'danger')
-            
     return render_template('register.html')
 
 @app.route('/logout')
 def logout():
-    """
-    Logs the user out by clearing the session.
-    """
+    '''
+    Logout operation.
+    Returns: redirection to login.
+    '''
     session.clear()
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
-# --- Core App Routes ---
-
 @app.route('/dashboard')
 def dashboard():
-    """
-    Serves the main dashboard page.
-    Redirects to login if the user is not authenticated.
-    """
+    '''
+    Route to dashboard.
+    Returns: redirection to login if not logged in. Else, redirect to dashboard page.
+    '''
     if not is_logged_in():
         return redirect(url_for('login'))
-    
-    # You can add dashboard-specific logic here, like "recently played"
-    return render_template('dashboard.html')
+    collections = backend.get_user_collections(session['user_id'])
+    return render_template('dashboard.html', collections=collections)
+
+
 
 @app.route('/search')
 def search():
-    """
-    Handles the main search page for songs.
-    Takes search and sorting parameters from the URL (GET request).
-    """
+    '''
+    Route to search page.
+    Returns: redirection to login if not logged in. Else, redirect to search page.
+    '''
     if not is_logged_in():
         return redirect(url_for('login'))
 
@@ -173,7 +151,7 @@ def collections():
     user_collections = backend.get_user_collections(session['user_id'])
     return render_template('collections.html', collections=user_collections)
 
-@app.route('/collection/create', methods=['POST'])
+@app.route('/collections/create', methods=['POST'])
 def create_collection():
     """
     Handles the creation of a new, empty collection (POST request).
@@ -190,8 +168,8 @@ def create_collection():
             
     return redirect(url_for('collections'))
 
-@app.route('/collection/<string:collection_title>')
-def collection_details(collection_title):
+@app.route('/collections/<string:collection_id>')
+def collection_details(collection_id):
     """
     Displays the details and list of songs for a specific collection.
     Identifies the collection by its title.
@@ -199,7 +177,7 @@ def collection_details(collection_title):
     if not is_logged_in():
         return redirect(url_for('login'))
         
-    details = backend.get_collection_details(session['user_id'], collection_title)
+    details = backend.get_collection_details(session['user_id'], collection_id)
     
     if not details:
         flash('Collection not found.', 'danger')
@@ -207,7 +185,7 @@ def collection_details(collection_title):
         
     return render_template('collection_details.html', collection=details)
 
-@app.route('/collection/rename', methods=['POST'])
+@app.route('/collections/rename', methods=['POST'])
 def rename_collection():
     """
     Handles renaming a collection (POST request).
@@ -221,14 +199,14 @@ def rename_collection():
     if old_title and new_title:
         if backend.rename_collection(session['user_id'], old_title, new_title):
             flash('Collection renamed successfully.', 'success')
-            return redirect(url_for('collection_details', collection_title=new_title))
+            return redirect(url_for('collection_details', collection_id=new_title))
         else:
             flash('Failed to rename collection. Does a collection with the new name already exist?', 'danger')
-            return redirect(url_for('collection_details', collection_title=old_title))
+            return redirect(url_for('collection_details', collection_id=old_title))
             
     return redirect(url_for('collections'))
 
-@app.route('/collection/delete', methods=['POST'])
+@app.route('/collections/delete', methods=['POST'])
 def delete_collection():
     """
     Handles deleting an entire collection (POST request).
@@ -245,7 +223,7 @@ def delete_collection():
 
 # --- Song and "Play" Routes ---
 
-@app.route('/collection/add_song', methods=['POST'])
+@app.route('/collections/add_song', methods=['POST'])
 def add_song_to_collection():
     """
     Handles adding a single song to a collection (POST request).
@@ -253,20 +231,20 @@ def add_song_to_collection():
     if not is_logged_in():
         return redirect(url_for('login'))
 
-    collection_title = request.form.get('collection_title')
+    collection_id = request.form.get('collection_id')
     song_id = request.form.get('song_id')
     album_id = request.form.get('album_id') # For adding an album
 
-    if song_id and collection_title:
+    if song_id and collection_id:
         # Add a single song
-        if backend.add_song_to_collection(session['user_id'], collection_title, song_id):
+        if backend.add_song_to_collection(session['user_id'], collection_id, song_id):
             flash('Song added to collection.', 'success')
         else:
             flash('Song is already in that collection.', 'warning')
             
-    elif album_id and collection_title:
+    elif album_id and collection_id:
         # Add all songs from an album
-        added_count = backend.add_album_to_collection(session['user_id'], collection_title, album_id)
+        added_count = backend.add_album_to_collection(session['user_id'], collection_id, album_id)
         if added_count > 0:
             flash(f'Added {added_count} songs from the album.', 'success')
         else:
@@ -278,7 +256,7 @@ def add_song_to_collection():
     # Redirect back to the page the user was on
     return redirect(request.referrer or url_for('dashboard'))
 
-@app.route('/collection/remove_song', methods=['POST'])
+@app.route('/collections/remove_song', methods=['POST'])
 def remove_song_from_collection():
     """
     Handles removing a single song from a collection (POST request).
@@ -286,14 +264,14 @@ def remove_song_from_collection():
     if not is_logged_in():
         return redirect(url_for('login'))
             
-    collection_title = request.form.get('collection_title')
+    collection_id = request.form.get('collection_id')
     song_id = request.form.get('song_id')
     
-    if collection_title and song_id:
-        backend.remove_song_from_collection(session['user_id'], collection_title, song_id)
+    if collection_id and song_id:
+        backend.remove_song_from_collection(session['user_id'], collection_id, song_id)
         flash('Song removed from collection.', 'info')
             
-    return redirect(url_for('collection_details', collection_title=collection_title))
+    return redirect(url_for('collection_details', collection_id=collection_id))
 
 @app.route('/play/song/<int:song_id>', methods=['POST'])
 def play_song_route(song_id):
@@ -309,22 +287,22 @@ def play_song_route(song_id):
     # Redirect back to the page the user was on
     return redirect(request.referrer or url_for('dashboard'))
 
-@app.route('/play/collection/<string:collection_title>', methods=['POST'])
-def play_collection_route(collection_title):
+@app.route('/play/collections/<string:collection_id>', methods=['POST'])
+def play_collection_route(collection_id):
     """
     Logs that a user "played" all songs in a collection.
     """
     if not is_logged_in():
         return redirect(url_for('login'))
         
-    played_count = backend.play_collection(session['user_id'], collection_title)
+    played_count = backend.play_collection(session['user_id'], collection_id)
     
     if played_count > 0:
         flash(f'Logged play for {played_count} songs in the collection.', 'success')
     else:
         flash('Could not play collection. Do you own it?', 'danger')
         
-    return redirect(url_for('collection_details', collection_title=collection_title))
+    return redirect(url_for('collection_details', collection_id=collection_id))
 
 @app.route('/rate/song', methods=['POST'])
 def rate_song_route():
