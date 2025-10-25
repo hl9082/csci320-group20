@@ -135,7 +135,7 @@ def search():
     sort_order = request.args.get('order', 'ASC')   # Default order
 
     search_results = []
-    user_collections = []
+    
 
     if search_term and search_type:
         # If a search was performed, fetch results from the backend
