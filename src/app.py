@@ -95,16 +95,7 @@ def dashboard():
     collections = backend.get_user_collections(session['user_id'])
     return render_template('dashboard.html', collections=collections)
 
-@app.route('/collections')
-def collections():
-    '''
-    Route to collections page.
-    Returns: redirection to login if not logged in. Else, redirect to collections page.
-    '''
-    if not is_logged_in():
-        return redirect(url_for('login'))
-    user_collections = backend.get_user_collections(session['user_id'])
-    return render_template('collections.html', collections=user_collections)
+
 
 @app.route('/search')
 def search():
