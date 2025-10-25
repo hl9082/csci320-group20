@@ -106,7 +106,7 @@ def get_collection_details(user_id, collection_title):
         'title': collection_title,
         'songs': []
     }
-    
+   
     sql_songs = """
         SELECT 
             S.SongID, S.Title AS SongTitle, S.Length, S.ReleaseDate,
@@ -122,7 +122,7 @@ def get_collection_details(user_id, collection_title):
         LEFT JOIN "album" AL ON C.AlbumID = AL.AlbumID
         LEFT JOIN "has" H ON S.SongID = H.SongID
         LEFT JOIN "genres" G ON H.GenreID = G.GenreID
-        LEFT JOIN "RATES" R ON S.SongID = R.SongID AND R.UserID = %s
+        LEFT JOIN "rates" R ON S.SongID = R.SongID AND R.UserID = %s
         WHERE CO.UserID = %s AND CO.Title = %s
         ORDER BY S.Title
     """
@@ -448,7 +448,7 @@ def rate_song(user_id, song_id, rating):
         return False
 
     sql = """
-        INSERT INTO "RATES" (UserID, SongID, Rating)
+        INSERT INTO "rates" (UserID, SongID, Rating)
         VALUES (%s, %s, %s)
         ON CONFLICT (UserID, SongID)
         DO UPDATE SET Rating = EXCLUDED.Rating
