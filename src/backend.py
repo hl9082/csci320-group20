@@ -136,10 +136,7 @@ def get_user_collections(user_id):
     except Exception as e:
         print(f"Failed to get collections due to a database error: {e}")
         return []
-    finally:
-        if conn:
-            conn.close()
-   
+    
 def get_collection_details(collection_id, user_id):
     """
     Gets a specific collection's info AND all songs within it.
@@ -159,44 +156,40 @@ def get_collection_details(collection_id, user_id):
     # Get all songs in that collection
     sql_songs = """
         SELECT 
-            S.songid, S.title AS SongTitle, S.Length, S.ReleaseYear,
+            S.songid, S.title AS SongTitle, S.length, S.releasedate,
             A.name AS ArtistName,
-            AL.title AS AlbumTitle, AL.AlbumID,
+            AL.title AS AlbumTitle, AL.albumid,
             G.genretype AS GenreName,
             R.rating
-        FROM "consists_of" CO
-        JOIN "song" S ON S.songid = CO.songid
-        LEFT JOIN "performs" P ON S.songid = P.songid
-        LEFT JOIN "artist" A ON P.artistid = A.artistid
-        LEFT JOIN "contains" C ON S.songid = C.songid
-        LEFT JOIN "album" AL ON C.albumid = AL.albumid
-        LEFT JOIN "has" H ON S.songid = H.songid
-        LEFT JOIN "genre" G ON H.genreid = G.genreid
-        LEFT JOIN "rates" R ON S.songid = R.songid AND R.userid = %s
-        WHERE CO.UserID = %s AND CO.Title = %s
-        ORDER BY S.Title
+        FROM "song" S
+        JOIN "consists_of" CO ON S.songid = CO.songid
+        JOIN "performs" P ON S.songid = P.songid
+        JOIN "artist" A ON P.artistid = A.artistid
+        JOIN "contains" C ON S.songid = C.songid
+        JOIN "album" AL ON C.albumid = AL.albumid
+        JOIN "has" H ON S.songid = H.songid
+        JOIN "genre" G ON H.genreid = G.genreid
+        LEFT JOIN "rates" R ON S.songid = R.songid AND R.songid = %s
+        WHERE CO.userid = %s AND CO.title = %s
+        ORDER BY S.title
     """
-    conn = None
     try:
-        conn = get_db_connection()
-        with conn.cursor() as curs:
-            curs.execute(sql_songs, (user_id, user_id, collection_id))
-            songs = curs.fetchall()
-            
-            if not songs:
-                # Check if the collection *exists* but is just empty
-                curs.execute('SELECT 1 FROM "collection" WHERE userid = %s AND title = %s', (user_id, collection_id))
-                if curs.fetchone() is None:
-                    return None # Collection doesn't exist at all
-            
-            collection_info['songs'] = songs
-            return collection_info
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql_songs, (user_id, user_id, collection_title))
+                songs = curs.fetchall()
+                
+                if not songs:
+                    # Check if the collection *exists* but is just empty
+                    curs.execute('SELECT 1 FROM "COLLECTION" WHERE UserID = %s AND Title = %s', (user_id, collection_title))
+                    if curs.fetchone() is None:
+                        return None # Collection doesn't exist at all
+                
+                collection_info['songs'] = songs
+                return collection_info
     except Exception as e:
         print(f"Failed to get collection details: {e}")
         return None
-    finally:
-        if conn:
-            conn.close()
 
 
 def create_collection(user_id, title):
@@ -219,9 +212,6 @@ def create_collection(user_id, title):
     except Exception as e:
         print(f"Failed to create collection: {e}")
         return False
-    finally:
-        if conn:
-            conn.close()
 
 def rename_collection(collection_id, new_title, user_id):
     """
@@ -244,9 +234,6 @@ def rename_collection(collection_id, new_title, user_id):
     except Exception as e:
         print(f"Failed to rename collection: {e}")
         return False
-    finally:
-        if conn:
-            conn.close()
 
 def delete_collection(collection_id, user_id):
     """
@@ -267,12 +254,8 @@ def delete_collection(collection_id, user_id):
                 return True
     except Exception as e:
         print(f"Failed to delete collection: {e}")
-        if conn:
-            conn.rollback() # Rollback on error
+        conn.rollback() # Rollback on error
         return False
-    finally:
-        if conn:
-            conn.close()
     
 def update_collection_stats(conn, user_id, collection_id):
     """
@@ -334,12 +317,8 @@ def add_song_to_collection(collection_id, song_id, user_id):
         return False
     except Exception as e:
         print(f"Failed to add song to collection: {e}")
-        if conn:
-            conn.rollback()
+        conn.rollback()
         return False
-    finally:
-        if conn:
-            conn.close()
     
 def add_album_to_collection(user_id, collection_id, album_id):
     """
@@ -362,7 +341,7 @@ def add_album_to_collection(user_id, collection_id, album_id):
             AND CO.songid = C.songid
         )
     """
-    conn = None
+    
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -370,7 +349,7 @@ def add_album_to_collection(user_id, collection_id, album_id):
                 added_count = curs.rowcount # Get how many songs were inserted
             
             # Update the collection stats in the same transaction
-            update_collection_stats(conn, user_id, collection_id)
+            _update_collection_stats(conn, user_id, collection_title)
             
             conn.commit()
             return added_count
@@ -378,9 +357,6 @@ def add_album_to_collection(user_id, collection_id, album_id):
         print(f"Failed to add album to collection: {e}")
         conn.rollback()
         return 0
-    finally:
-        if conn:
-            conn.close()
 
 def remove_song_from_collection(collection_id, song_id, user_id):
     """
@@ -410,12 +386,8 @@ def remove_song_from_collection(collection_id, song_id, user_id):
             return deleted_count > 0
     except Exception as e:
         print(f"Failed to remove song from collection: {e}")
-        if conn:
-            conn.rollback()
+        conn.rollback()
         return False
-    finally:
-        if conn:
-            conn.close()
 
 def search_songs(search_term, search_type, sort_by, sort_order):
     """
@@ -465,13 +437,13 @@ def search_songs(search_term, search_type, sort_by, sort_order):
             AL.albumid,
             G.genretype AS genre_name,
             {listen_count_subquery}
-        FROM "song" S
-        LEFT JOIN "performs" P ON S.songid = P.songid
-        LEFT JOIN "artist" A ON P.artistid = A.artistid
-        LEFT JOIN "contains" C ON S.songid = C.songid
-        LEFT JOIN "album" AL ON C.albumid = AL.albumid
-        LEFT JOIN "has" H ON S.songid = H.songid
-        LEFT JOIN "genre" G ON H.genreid = G.genreid
+        FROM "sonh" S
+        JOIN "performs" P ON S.songid = P.songid
+        JOIN "artist" A ON P.artistid = A.artistid
+        JOIN "contains" C ON S.songid = C.songid
+        JOIN "album" AL ON C.albumid = AL.albumid
+        JOIN "has" H ON S.songid = H.songid
+        JOIN "genre" G ON H.genreid = G.genreid
     """
     
     where_clause = ""
@@ -503,9 +475,6 @@ def search_songs(search_term, search_type, sort_by, sort_order):
     except Exception as e:
         print(f"Failed to search songs: {e}")
         return []
-    finally:
-        if conn:
-            conn.close()
 
 # --- "Play" Functions ---
 
@@ -523,8 +492,6 @@ def play_song(song_id, user_id):
     
     now = datetime.now()
     
-    conn=None
-    
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -534,12 +501,8 @@ def play_song(song_id, user_id):
                 return True
     except Exception as e:
         print(f"Failed to play song: {e}")
-        if conn:
-            conn.rollback()
+        conn.rollback()
         return False
-    finally:
-        if conn:
-            conn.close()
 
 def play_collection(collection_id, user_id):
     """
@@ -561,8 +524,6 @@ def play_collection(collection_id, user_id):
     """
     now = datetime.now()
     
-    conn=None
-    
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -572,20 +533,13 @@ def play_collection(collection_id, user_id):
                 return played_count
     except Exception as e:
         print(f"Failed to play collection: {e}")
-        if conn:
-            conn.rollback()
         return 0
-    finally:
-        if conn:
-            conn.close()
 
 def rate_song(user_id, song_id, rating):
     """
     Inserts or updates a user's rating for a song.
     Enforces that the rating must be between 1 and 5.
     """
-    
-    conn=None
     try:
         rating_val = int(rating)
         if not 1 <= rating_val <= 5:
@@ -610,12 +564,7 @@ def rate_song(user_id, song_id, rating):
                 return True
     except Exception as e:
         print(f"Failed to rate song: {e}")
-        if conn:
-            conn.rollback()
         return False
-    finally:
-        if conn:
-            conn.close()
     
 def get_all_users_to_follow(user_id):
     """
@@ -630,19 +579,14 @@ def get_all_users_to_follow(user_id):
         WHERE U.userid != %s
         ORDER BY U.username
     """
-    
-    conn=None
     try:
-        conn = get_db_connection()
-        with conn.cursor() as curs:
-            curs.execute(sql, (user_id, user_id))
-            return curs.fetchall()
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql, (user_id, user_id))
+                return curs.fetchall()
     except Exception as e:
         print(f"Failed to get all users: {e}")
         return []
-    finally:
-        if conn:
-            conn.close()
 
 def search_users_by_email(user_id, email_term):
     """
@@ -657,7 +601,6 @@ def search_users_by_email(user_id, email_term):
         ORDER BY U.username
     """
     search_pattern = f"%{email_term}%"
-    conn=None
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -666,9 +609,6 @@ def search_users_by_email(user_id, email_term):
     except Exception as e:
         print(f"Failed to search users: {e}")
         return []
-    finally:
-        if conn:
-            conn.close()
 
 def follow_user(follower_id, followee_id):
     """
@@ -680,7 +620,6 @@ Additional-Instructions:
         return False
         
     sql = 'INSERT INTO "follows" (follower, followee) VALUES (%s, %s) ON CONFLICT DO NOTHING'
-    conn=None
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
@@ -689,30 +628,19 @@ Additional-Instructions:
                 return True
     except Exception as e:
         print(f"Failed to follow user: {e}")
-        if conn:
-            conn.rollback()
         return False
-    finally:
-        if conn:
-            conn.close()
 
 def unfollow_user(follower_id, followee_id):
     """
     Removes a record from the "FOLLOWS" table.
     """
     sql = 'DELETE FROM "followers" WHERE follower = %s AND followee = %s'
-    conn=None
     try:
-        conn = get_db_connection()
-        with conn.cursor() as curs:
-            curs.execute(sql, (follower_id, followee_id))
-            conn.commit()
-            return True
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql, (follower_id, followee_id))
+                conn.commit()
+                return True
     except Exception as e:
         print(f"Failed to unfollow user: {e}")
-        if conn:
-            conn.rollback()
         return False
-    finally:
-        if conn:
-            conn.close()
