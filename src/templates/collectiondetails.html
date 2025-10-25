@@ -53,9 +53,9 @@
                     {% for song in collection.songs %}
                     <tr class="hover:bg-gray-700/50">
                         <td class="p-4 font-medium text-white">{{ song.songtitle }}</td>
-                        <td class="p-4">{{ song.artistname }}</td>
-                        <td class="p-4">{{ song.albumtitle }}</td>
-                        <td class="p-4">{{ "%.2f"|format(song.length / 60) }} min</td>
+                        <td class="p-4 font-medium text-white">{{ song.artistname }}</td>
+                        <td class="p-4 font-medium text-white">{{ song.albumtitle }}</td>
+                        <td class="p-4 font-medium text-white">{{ "%.2f"|format(song.length / 60) }} min</td>
                         <td class="p-4">
                             {% if song.rating %}
                                 <span class="text-yellow-400">{{ song.rating }} Star{% if song.rating > 1 %}s{% endif %}</span>
