@@ -1,10 +1,140 @@
 {% extends "layout.html" %}
+
 {% block title %}Search Songs{% endblock %}
+
 {% block content %}
-    <h1>Search for Songs</h1>
-    <form method="GET" action="{{ url_for('search') }}">
-        <input type="text" name="term" placeholder="Enter search term..." required>
-        <button type="submit" class="btn">Search</button>
+    <h1 class="text-4xl font-bold mb-6 text-white">Search Songs</h1>
+
+    <!-- Search Form -->
+    <form method="GET" action="{{ url_for('search') }}" class="mb-8 p-6 bg-gray-700 rounded-xl grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <!-- Hidden inputs to persist sorting order -->
+        <input type="hidden" name="sort" value="{{ sort }}">
+        <input type="hidden" name="order" value="{{ order }}">
+        
+        <div class="md:col-span-2">
+            <label for="term" class="block text-sm font-medium text-gray-300 mb-2">Search Term</label>
+            <input type="text" id="term" name="term" value="{{ term }}" placeholder="e.g., 'Bohemian Rhapsody' or 'Queen'"
+                   class="w-full p-3 bg-gray-600 rounded-lg text-white border border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label for="type" class="block text-sm font-medium text-gray-300 mb-2">Search By</label>
+            <select id="type" name="type"
+                    class="w-full p-3 bg-gray-600 rounded-lg text-white border border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="" {% if not type %}selected{% endif %} disabled>Select type</option>
+                <option value="song" {% if type == 'song' %}selected{% endif %}>Song</option>
+                <option value="artist" {% if type == 'artist' %}selected{% endif %}>Artist</option>
+                <option value="album" {% if type == 'album' %}selected{% endif %}>Album</option>
+                <option value="genre" {% if type == 'genre' %}selected{% endif %}>Genre</option>
+            </select>
+        </div>
+        <button type="submit"
+                class="w-full p-3 bg-blue-600 rounded-lg font-semibold text-white hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-700">
+            Search
+        </button>
     </form>
 
-    {% endblock %}
+    <!-- Sorting and Results -->
+    {% if term and type %}
+        {% if results %}
+            <!-- Sorting Form -->
+            <form method="GET" action="{{ url_for('search') }}" class="mb-6 flex flex-wrap gap-4 items-center">
+                <input type="hidden" name="term" value="{{ term }}">
+                <input type="hidden" name="type" value="{{ type }}">
+                <span class="text-gray-300 font-medium">Sort by:</span>
+                <select name="sort" class="p-2 bg-gray-600 rounded-lg text-white border border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="song_name" {% if sort == 'song_name' %}selected{% endif %}>Song Name</option>
+                    <option value="artist_name" {% if sort == 'artist_name' %}selected{% endif %}>Artist Name</option>
+                    <option value="genre_name" {% if sort == 'genre_name' %}selected{% endif %}>Genre</option>
+                    <option value="releaseyear" {% if sort == 'releaseyear' %}selected{% endif %}>Release Year</option>
+                </select>
+                <select name="order" class="p-2 bg-gray-600 rounded-lg text-white border border-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="ASC" {% if order == 'ASC' %}selected{% endif %}>Ascending</option>
+                    <option value="DESC" {% if order == 'DESC' %}selected{% endif %}>Descending</option>
+                </select>
+                <button type="submit" class="p-2 px-4 bg-gray-600 rounded-lg font-semibold text-white hover:bg-gray-500 transition-colors">Sort</button>
+            </form>
+
+            <!-- Results Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full min-w-[1000px] text-left table-auto">
+                    <thead class="bg-gray-700">
+                        <tr class="text-gray-300 uppercase text-sm">
+                            <th class="p-4">Song</th>
+                            <th class="p-4">Artist</th>
+                            <th class="p-4">Album</th>
+                            <th class="p-4">Genre</th>
+                            <th class="p-4">Length</th>
+                            <th class="p-4">Year</th>
+                            <th class="p-4">Plays</th>
+                            <th class="p-4">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-700">
+                        {% for song in results %}
+                        <tr class="hover:bg-gray-700/50">
+                            <td class="p-4 font-medium text-white">{{ song.song_name }}</td>
+                            <td class="p-4">{{ song.artist_name }}</td>
+                            <td class="p-4">{{ song.album_name }}</td>
+                            <td class="p-4">{{ song.genre_name }}</td>
+                            <td class="p-4">{{ "%.2f"|format(song.length / 60) }} min</td>
+                            <td class="p-4">{{ song.releaseyear }}</td>
+                            <td class="p-4">{{ song.listencount }}</td>
+                            <td class="p-4 space-y-3">
+                                <!-- Play Song -->
+                                <form method="POST" action="{{ url_for('play_song_route', song_id=song.songid) }}">
+                                    <button type="submit" class="w-full text-center px-3 py-1.5 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">Play</button>
+                                </form>
+                                <!-- Add Song to Collection -->
+                                <form method="POST" action="{{ url_for('add_song_to_collection') }}" class="flex gap-2">
+                                    <input type="hidden" name="song_id" value="{{ song.songid }}">
+                                    <select name="collection_title" class="w-full p-1.5 text-sm bg-gray-600 rounded-md text-white border border-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                        <option value="" disabled selected>Add Song to...</option>
+                                        {% for c in collections %}
+                                        <option value="{{ c.title }}">{{ c.title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">+</button>
+                                </form>
+                                <!-- Add Album to Collection -->
+                                <form method="POST" action="{{ url_for('add_song_to_collection') }}" class="flex gap-2">
+                                    <input type="hidden" name="album_id" value="{{ song.albumid }}">
+                                    <select name="collection_title" class="w-full p-1.5 text-sm bg-gray-600 rounded-md text-white border border-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                        <option value="" disabled selected>Add Album to...</option>
+                                        {% for c in collections %}
+                                        <option value="{{ c.title }}">{{ c.title }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">+</button>
+                                </form>
+                                <!-- Rate Song -->
+                                <form method="POST" action="{{ url_for('rate_song_route') }}" class="flex gap-2">
+                                    <input type="hidden" name="song_id" value="{{ song.songid }}">
+                                    <select name="rating" class="w-full p-1.5 text-sm bg-gray-600 rounded-md text-white border border-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                                        <option value="" disabled selected>Rate...</option>
+                                        <option value="1">1 Star</option>
+                                        <option value="2">2 Stars</option>
+                                        <option value="3">3 Stars</option>
+                                        <option value="4">4 Stars</option>
+                                        <option value="5">5 Stars</option>
+                                    </select>
+                                    <button type="submit" class="px-3 py-1.5 text-sm bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors">OK</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        {% else %}
+            <div class="p-6 bg-gray-700 rounded-xl text-center">
+                <p class="text-lg text-gray-300">No songs found matching your criteria.</p>
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="p-6 bg-gray-700 rounded-xl text-center">
+            <p class="text-lg text-gray-300">Use the form above to search for music.</p>
+        </div>
+    {% endif %}
+
+{% endblock %}

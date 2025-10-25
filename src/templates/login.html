@@ -1,15 +1,81 @@
-{% extends "layout.html" %}
-{% block title %}Login{% endblock %}
-{% block content %}
-    <h1>Login</h1>
-    <form method="POST">
-        <label for="username">Username</label>
-        <input type="text" id="username" name="username" required>
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Music App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="h-full">
+    <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+        <div class="sm:mx-auto sm:w-full sm:max-w-sm">
+            <h2 class="mt-10 text-center text-3xl font-bold leading-9 tracking-tight text-white">
+                MusicDB Login
+            </h2>
+        </div>
 
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required>
+        <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+            <!-- Flashed Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mb-4">
+                        {% for category, message in messages %}
+                            <div class="{% if category == 'danger' %} bg-red-800 border-red-900 text-red-100 {% elif category == 'success' %} bg-green-800 border-green-900 text-green-100 {% else %} bg-blue-800 border-blue-900 text-blue-100 {% endif %} border-l-4 p-4 rounded-md" role="alert">
+                                <p>{{ message }}</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
-        <button type="submit" class="btn">Login</button>
-    </form>
-    <p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
-{% endblock %}
+            <form class="space-y-6" action="{{ url_for('login') }}" method="POST">
+                <div>
+                    <label for="username" class="block text-sm font-medium leading-6 text-white">Username</label>
+                    <div class="mt-2">
+                        <!-- BEGIN FIX: Added text-black and font-bold -->
+                        <input id="username" name="username" type="text" required
+                               class="block w-full rounded-md border-0 py-1.5 px-3 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 text-black font-bold">
+                        <!-- END FIX -->
+                    </div>
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium leading-6 text-white">Password</label>
+                    <div class="mt-2">
+                        <!-- BEGIN FIX: Added text-black and font-bold -->
+                        <input id="password" name="password" type="password" required
+                               class="block w-full rounded-md border-0 py-1.5 px-3 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 text-black font-bold">
+                        <!-- END FIX -->
+                    </div>
+                </div>
+
+                <div>
+                    <button type="submit"
+                            class="flex w-full justify-center rounded-md bg-indigo-500 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
+                        Sign in
+                    </button>
+                </div>
+            </form>
+
+            <p class="mt-10 text-center text-sm text-gray-400">
+                Don't have an account?
+                <a href="{{ url_for('register') }}" class="font-semibold leading-6 text-indigo-400 hover:text-indigo-300">Register here</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

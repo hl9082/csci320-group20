@@ -1,24 +1,113 @@
-{% extends "layout.html" %}
-{% block title %}Register{% endblock %}
-{% block content %}
-    <h1>Create an Account</h1>
-    <form method="POST">
-        <label for="username">Username</label>
-        <input type="text" id="username" name="username" required>
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-900">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Music App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Inter', 'sans-serif'],
+                    },
+                },
+            },
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="h-full">
+    <div class="flex min-h-full flex-col justify-center px-6 py-12 lg:px-8">
+        <div class="sm:mx-auto sm:w-full sm:max-w-sm">
+            <h2 class="mt-10 text-center text-3xl font-bold leading-9 tracking-tight text-white">
+                Create your account
+            </h2>
+        </div>
 
-        <label for="password">Password</label>
-        <input type="password" id="password" name="password" required>
+        <div class="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
+            <!-- Flashed Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mb-4">
+                        {% for category, message in messages %}
+                            <div class="{% if category == 'danger' %} bg-red-800 border-red-900 text-red-100 {% elif category == 'success' %} bg-green-800 border-green-900 text-green-100 {% else %} bg-blue-800 border-blue-900 text-blue-100 {% endif %} border-l-4 p-4 rounded-md" role="alert">
+                                <p>{{ message }}</p>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
 
-        <label for="first_name">First Name</label>
-        <input type="text" id="first_name" name="first_name">
+            <form class="space-y-6" action="{{ url_for('register') }}" method="POST">
+                <div>
+                    <!-- BEGIN FIX: Added font-bold text-white -->
+                    <label for="username" class="block text-sm font-medium leading-6 text-white font-bold">Username</label>
+                    <!-- END FIX -->
+                    <div class="mt-2">
+                        <input id="username" name="username" type="text" required
+                               class="block w-full rounded-md border-0 py-1.5 px-3 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 text-black font-bold">
+                    </div>
+                </div>
 
-        <label for="last_name">Last Name</label>
-        <input type="text" id="last_name" name="last_name">
+                <div>
+                    <!-- BEGIN FIX: Added font-bold text-white -->
+                    <label for="first_name" class="block text-sm font-medium leading-6 text-white font-bold">First Name</label>
+                    <!-- END FIX -->
+                    <div class="mt-2">
+                        <input id="first_name" name="first_name" type="text" required
+                               class="block w-full rounded-md border-0 py-1.5 px-3 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 text-black font-bold">
+                    </div>
+                </div>
 
-        <label for="email">Email</label>
-        <input type="email" id="email" name="email" required>
+                <div>
+                    <!-- BEGIN FIX: Added font-bold text-white -->
+                    <label for="last_name" class="block text-sm font-medium leading-6 text-white font-bold">Last Name</label>
+                    <!-- END FIX -->
+                    <div class="mt-2">
+                        <input id="last_name" name="last_name" type="text" required
+                               class="block w-full rounded-md border-0 py-1.5 px-3 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 text-black font-bold">
+                    </div>
+                </div>
 
-        <button type="submit" class="btn">Register</button>
-    </form>
-    <p>Already have an account? <a href="{{ url_for('login') }}">Login here</a></p>
-{% endblock %}
+                <div>
+                    <!-- BEGIN FIX: Added font-bold text-white -->
+                    <label for="email" class="block text-sm font-medium leading-6 text-white font-bold">Email</label>
+                    <!-- END FIX -->
+                    <div class="mt-2">
+                        <input id="email" name="email" type="email" required
+                               class="block w-full rounded-md border-0 py-1.5 px-3 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 text-black font-bold">
+                    </div>
+                </div>
+
+                <div>
+                    <!-- BEGIN FIX: Added font-bold text-white -->
+                    <label for="password" class="block text-sm font-medium leading-6 text-white font-bold">Password</label>
+                    <!-- END FIX -->
+                    <div class="mt-2">
+                        <input id="password" name="password" type="password" required
+                               class="block w-full rounded-md border-0 py-1.5 px-3 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 text-black font-bold">
+                    </div>
+                </div>
+
+                <div>
+                    <button type="submit"
+                            class="flex w-full justify-center rounded-md bg-indigo-500 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-sm hover:bg-indigo-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500">
+                        Create Account
+                    </button>
+                </div>
+            </form>
+
+            <!-- BEGIN FIX: Added font-bold text-white -->
+            <p class="mt-10 text-center text-sm text-white font-bold">
+                Already have an account?
+                <a href="{{ url_for('login') }}" class="font-semibold leading-6 text-indigo-400 hover:text-indigo-300">Sign in here</a>
+            </p>
+            <!-- END FIX -->
+        </div>
+    </div>
+</body>
+</html>

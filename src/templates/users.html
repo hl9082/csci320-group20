@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+
+{% block title %}Find Users{% endblock %}
+{% block page_title %}Find Users{% endblock %}
+
+{% block content %}
+    <!-- Search Users Form -->
+    <div class="bg-gray-800 p-6 rounded-lg shadow-lg mb-6 max-w-xl">
+        <h2 class="text-xl font-semibold text-white mb-4">Search Users by Email</h2>
+        <form action="{{ url_for('search_users') }}" method="POST" class="flex gap-2">
+            <input type="email" name="email" placeholder="user@example.com" value="{{ search_email or '' }}"
+                   class="flex-auto rounded-md bg-white/5 px-3.5 py-2 text-white shadow-sm ring-1 ring-inset ring-white/10 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm">
+            <button type="submit"
+                    class="rounded-md bg-indigo-500 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-400">
+                Search
+            </button>
+        </form>
+    </div>
+
+    <!-- Users List -->
+    <div class="overflow-hidden bg-gray-800 shadow sm:rounded-lg">
+        <ul role="list" class="divide-y divide-gray-700">
+            {% if users %}
+                {% for user in users %}
+                <li class="px-4 py-4 sm:px-6">
+                    <div class="flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-md font-semibold text-white">{{ user.username }}</p>
+                            <!-- BEGIN FIX: Changed text-gray-400 to text-white -->
+                            <p class="text-sm text-white">{{ user.email }}</p>
+                            <!-- END FIX -->
+                        </div>
+                        <div class="flex-shrink-0">
+                            {% if user.is_following %}
+                                <!-- Unfollow Button -->
+                                <form action="{{ url_for('unfollow_user_route') }}" method="POST">
+                                    <input type="hidden" name="followee_id" value="{{ user.userid }}">
+                                    <button type="submit"
+                                            class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-red-500">
+                                        Unfollow
+                                    </button>
+                                </form>
+                            {% else %}
+                                <!-- Follow Button -->
+                                <form action="{{ url_for('follow_user_route') }}" method="POST">
+                                    <input type="hidden" name="followee_id" value="{{ user.userid }}">
+                                    <button type="submit"
+                                            class="rounded-md bg-green-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-green-500">
+                                        Follow
+                                    </button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            {% else %}
+                <li class="px-4 py-5 sm:px-6">
+                    <p class="text-center text-gray-400">No users found.</p>
+                </li>
+            {% endif %}
+        </ul>
+    </div>
+{% endblock %}
+
+
