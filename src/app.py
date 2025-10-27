@@ -1,7 +1,7 @@
 # src/app.py
 '''
 Author: Huy Le (hl9082)
-Co-authors: Jason Ting, Iris Li, Raymond Lee
+Co-authors: Jason Ting, Iris Li (il6685), Raymond Lee
  Group: 20
  Course: CSCI 320
  Filename: app.py
