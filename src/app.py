@@ -15,6 +15,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 import backend # Direct import of our backend logic file.
 import os # Used for the secret key.
 from dotenv import find_dotenv, load_dotenv # Used to load environment variables.
+import bcrypt 
 
 # --- App Initialization ---
 
@@ -58,9 +59,13 @@ def login():
 
     if request.method == 'POST':
         # Pass login credentials to the backend
-        user = backend.login_user(request.form['username'], request.form['password'])
+        username = request.form['username']
+        password = request.form['password']
+
+        print(f"Login attempt - Username: {username}, Password: {password}")
+
+        user = backend.login_user(username, password)
         if user:
-            # If login is successful, store user info in the session
             session['user_id'] = user['userid']
             session['username'] = user['username']
             flash('Login successful!', 'success')
@@ -81,13 +86,17 @@ def register():
         return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
+        password = request.form['password']
+        hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
         user_id = backend.create_user(
             username=request.form['username'], 
-            password=request.form['password'],
+            password = hashed_password,
             first_name=request.form['first_name'], 
             last_name=request.form['last_name'],
             email=request.form['email']
         )
+
         if user_id:
             flash('Account created successfully! Please log in.', 'success')
             return redirect(url_for('login'))
