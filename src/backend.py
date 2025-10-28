@@ -13,6 +13,7 @@ from datetime import datetime  # Used to generate timestamps for creation and la
 from db_connector import get_db_connection  # Imports the connection manager from our connector file.
 import psycopg2  # Imported specifically to catch psycopg2-related exceptions.
 from psycopg2.extras import DictCursor # Ensures we can access results by column name
+import bcrypt 
 
 # --- User Management ---
 
@@ -23,11 +24,13 @@ def create_user(username, password, first_name, last_name, email):
     Schema-Compliant: Uses "users" table.
     """
     now = datetime.now()
+
     sql = """
         INSERT INTO "users" (Username, Password, FirstName, LastName, Email, CreationDate, LastAccessDate)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING UserID
     """
+
     try:
         # Use the context manager to get a connection
         with get_db_connection() as conn:
@@ -67,7 +70,7 @@ def login_user(username, password):
                 stored_password = user_record['password']
                 
                 # Direct plaintext comparison
-                if stored_password == password:
+                if bcrypt.checkpw(password.encode('utf-8'), stored_password.encode('utf-8')):
                     # Update last access time
                     curs.execute(sql_update_access, (now, user_record['userid']))
                     conn.commit()
