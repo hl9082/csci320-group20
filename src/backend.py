@@ -11,6 +11,7 @@ This module contains all the functions that interact with the database.
 '''
 from datetime import datetime  # Used to generate timestamps for creation and last access dates.
 from db_connector import get_db_connection  # Imports the connection manager from our connector file.
+#from src.db_connector import get_db_connection                 #Used for populating_user_table
 import psycopg2  # Imported specifically to catch psycopg2-related exceptions.
 from psycopg2.extras import DictCursor # Ensures we can access results by column name
 import bcrypt 
@@ -37,6 +38,8 @@ def create_user(username, password, first_name, last_name, email):
             with conn.cursor() as curs:
                 curs.execute(sql, (username, password, first_name, last_name, email, now, now))
                 user_id = curs.fetchone()['userid']
+                #curs.execute("TRUNCATE TABLE users RESTART IDENTITY CASCADE")
+                print(user_id)
                 conn.commit()
                 return user_id
     except psycopg2.errors.UniqueViolation:

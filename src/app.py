@@ -103,7 +103,7 @@ def register():
             return redirect(url_for('login'))
         else:
             flash('Username or email already exists.', 'danger')
-            
+    
     return render_template('register.html')
 
 @app.route('/logout')
