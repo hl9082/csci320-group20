@@ -73,9 +73,9 @@
                         {% for song in results %}
                         <tr class="hover:bg-gray-700/50">
                             <td class="p-4 font-medium text-white">{{ song.song_name }}</td>
-                            <td class="p-4 font-medium text-white">{{ song.artist_name }}</td>
-                            <td class="p-4 font-medium text-white">{{ song.album_name }}</td>
-                            <td class="p-4 font-medium text-white">{{ song.genre_name }}</td>
+                            <td class="p-4 font-medium text-white">{{ song.artist_list }}</td>
+                            <td class="p-4 font-medium text-white">{{ song.album_list }}</td>
+                            <td class="p-4 font-medium text-white">{{ song.genre_list }}</td>
                             <td class="p-4 font-medium text-white">{{ "%.2f"|format(song.length / 60) }} min</td>
                             <td class="p-4 font-medium text-white">{{ song.releasedate }}</td>
                             <td class="p-4 font-medium text-white">{{ song.listencount }}</td>
