@@ -325,7 +325,8 @@ def search_songs(search_term, search_type, sort_by, sort_order):
     # Whitelist sort options to prevent SQL injection
     sort_columns_map = {
         'song_name': 'S.Title',
-        'artist_name': 'A.Name',
+        'artist_name': 'artist_list',
+        'album_name' : 'album_list',
         'genre_name': 'G.GenreType',
         'ReleaseDate': 'S.ReleaseDate'
     }
@@ -339,36 +340,35 @@ def search_songs(search_term, search_type, sort_by, sort_order):
     order_by_clause = f"ORDER BY {sort_column} {sort_direction}"
     # Add secondary sort for song name
     if sort_by == 'song_name':
-        order_by_clause += ", A.Name ASC"
+        order_by_clause += ", artist_list ASC"
     elif sort_by == 'artist_name':
         order_by_clause += ", S.Title ASC"
         
     # This subquery calculates the listen count for each song
     listen_count_subquery = """
-        (SELECT COUNT(*) FROM "plays" P WHERE P.SongID = S.SongID) AS listencount
+        #(SELECT COUNT(*) FROM "plays" P WHERE P.SongID = S.SongID) AS listencount
     """
     
     base_query = f"""
-        SELECT DISTINCT
+        SELECT 
             S.SongID, 
             S.Title AS song_name, 
+            COALESCE(STRING_AGG(DISTINCT A.Name, ',' ORDER BY A.Name), '') AS artist_list,
+            COALESCE(STRING_AGG(DISTINCT AL.Name, ',' ORDER BY AL.Name), '') AS album_list,
+            COALESCE(STRING_AGG(DISTINCT G.GenreType, ',' ORDER BY G.GenreType), '') AS genre_list,
+            (SELECT COUNT(*) FROM "plays" P WHERE P.SongID = S.SongID) AS listencount, 
             S.Length, 
-            S.ReleaseDate,
-            A.Name AS artist_name, 
-            AL.Name AS album_name, 
-            AL.AlbumID,
-            G.GenreType AS genre_name,
-            {listen_count_subquery}
-        FROM "song" S
-        LEFT JOIN "performs" P ON S.SongID = P.SongID
-        LEFT JOIN "artist" A ON P.ArtistID = A.ArtistID
-        LEFT JOIN "contains" C ON S.SongID = C.SongID
-        LEFT JOIN "album" AL ON C.AlbumID = AL.AlbumID
-        LEFT JOIN "has" H ON S.SongID = H.SongID
-        LEFT JOIN "genres" G ON H.GenreID = G.GenreID
+            S.ReleaseDate
+        FROM song S
+        LEFT JOIN performs P ON S.SongID = P.SongID
+        LEFT JOIN artist A ON P.ArtistID = A.ArtistID
+        LEFT JOIN contains C ON S.SongID = C.SongID
+        LEFT JOIN album AL ON C.AlbumID = AL.AlbumID
+        LEFT JOIN has H ON S.SongID = H.SongID
+        LEFT JOIN genres G ON H.GenreID = G.GenreID
     """
-    
-    where_clause = ""
+
+    #where_clause = ""
     params = ()
     search_pattern = f"%{search_term}%" # ILIKE is case-insensitive
 
@@ -376,18 +376,37 @@ def search_songs(search_term, search_type, sort_by, sort_order):
         where_clause = "WHERE S.Title ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'artist':
-        where_clause = "WHERE A.Name ILIKE %s"
+        where_clause = """
+            WHERE EXISTS(
+                SELECT 1
+                FROM performs P2
+                JOIN artist A2 ON P2.ArtistID = A2.ArtistID
+                WHERE P2.SongID = S.SongID AND A2.Name ILIKE %s)
+        """
         params = (search_pattern,)
     elif search_type == 'album':
         where_clause = "WHERE AL.Name ILIKE %s"
         params = (search_pattern,)
     elif search_type == 'genre':
-        where_clause = "WHERE G.GenreType ILIKE %s"
+        where_clause = """
+            WHERE EXISTS(
+                SELECT 1
+                FROM has H2
+                JOIN genres G2 ON H2.GenreID = G2.GenreID
+                WHERE H2.SongID = S.SongID AND G2.GenreType ILIKE %s)
+        """
         params = (search_pattern,)
     else:
         return [] # Invalid search type
 
-    sql = f"{base_query} {where_clause} {order_by_clause}"
+    group_by_clause = """
+        GROUP BY 
+            S.SongID,
+            S.Title,
+            S.Length,
+            S.ReleaseDate
+    """
+    sql = f"{base_query} {where_clause} {group_by_clause} {order_by_clause}"
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
