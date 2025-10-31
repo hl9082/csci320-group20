@@ -133,7 +133,7 @@ def get_collection_details(user_id, collection_title):
         LEFT JOIN "genres" G ON H.GenreID = G.GenreID
         LEFT JOIN "rates" R ON S.SongID = R.SongID AND R.UserID = %s
         WHERE CO.UserID = %s AND CO.Title = %s
-        GROUP BY S.SongID, S.Title, S.Length, S.ReleaseDate, AL.Name, AL.AlbumID
+        GROUP BY S.SongID, S.Title, S.Length, S.ReleaseDate
         ORDER BY S.Title
     """
     try:
