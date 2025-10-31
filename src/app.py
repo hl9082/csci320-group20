@@ -146,16 +146,16 @@ def search():
 
     search_results = []
     
-
-    if search_term and search_type:
-        # If a search was performed, fetch results from the backend
-        search_results = backend.search_songs(
-            search_term=search_term,
-            search_type=search_type,
-            sort_by=sort_by,
-            sort_order=sort_order
-        )
+    # If a search was performed, fetch results from the backend
+    search_results = backend.search_songs(
+        search_term=search_term or '', 
+        search_type=search_type or None,
+        sort_by=sort_by,
+        sort_order=sort_order
+    )
     
+    print(search_results)
+
     # Always get the user's collections for the "Add to Collection" dropdown
     user_collections = backend.get_user_collections(session['user_id'])
 
