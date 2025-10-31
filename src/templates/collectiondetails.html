@@ -44,6 +44,7 @@
                         <th class="p-4">Song</th>
                         <th class="p-4">Artist</th>
                         <th class="p-4">Album</th>
+                        <th class="p-4">Genre</th>
                         <th class="p-4">Length</th>
                         <th class="p-4">Your Rating</th>
                         <th class="p-4">Actions</th>
@@ -53,8 +54,9 @@
                     {% for song in collection.songs %}
                     <tr class="hover:bg-gray-700/50">
                         <td class="p-4 font-medium text-white">{{ song.songtitle }}</td>
-                        <td class="p-4 font-medium text-white">{{ song.artistname }}</td>
+                        <td class="p-4 font-medium text-white">{{ song.artist_list }}</td>
                         <td class="p-4 font-medium text-white">{{ song.albumtitle }}</td>
+                        <td class="p-4 font-medium text-white">{{ song.genre_list }}</td>
                         <td class="p-4 font-medium text-white">{{ "%.2f"|format(song.length / 60) }} min</td>
                         <td class="p-4">
                             {% if song.rating %}

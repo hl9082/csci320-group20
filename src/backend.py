@@ -114,12 +114,15 @@ def get_collection_details(user_id, collection_title):
    
     sql_songs = """
         SELECT 
-        S.SongID, S.Title AS SongTitle, S.Length, S.ReleaseDate,
-        A.Name AS ArtistName,
-        AL.Name AS AlbumTitle, AL.AlbumID,
-        G.GenreType AS GenreName,
-        R.Rating
-        FROM "consists_of" CO
+            S.SongID, 
+            S.Title AS SongTitle, 
+            S.Length, 
+            S.ReleaseDate,
+            COALESCE(STRING_AGG(DISTINCT A.Name, ',' ORDER BY A.Name), '') AS artist_list,
+            COALESCE(STRING_AGG(DISTINCT AL.Name, ',' ORDER BY AL.Name), '') AS album_list,
+            COALESCE(STRING_AGG(DISTINCT G.GenreType, ',' ORDER BY G.GenreType), '') AS genre_list,
+            MAX(R.Rating) AS Rating
+        FROM "consists_of" AS CO
         JOIN "song" S ON S.SongID = CO.SongID
         LEFT JOIN "performs" P ON S.SongID = P.SongID
         LEFT JOIN "artist" A ON P.ArtistID = A.ArtistID
@@ -129,6 +132,7 @@ def get_collection_details(user_id, collection_title):
         LEFT JOIN "genres" G ON H.GenreID = G.GenreID
         LEFT JOIN "rates" R ON S.SongID = R.SongID AND R.UserID = %s
         WHERE CO.UserID = %s AND CO.Title = %s
+        GROUP BY S.SongID, S.Title, S.Length, S.ReleaseDate
         ORDER BY S.Title
     """
     try:
@@ -335,26 +339,13 @@ def search_songs(search_term, search_type, sort_by, sort_order):
     sort_column = sort_columns_map.get(sort_by, 'S.Title')
     sort_direction = sort_order_map.get(sort_order, 'ASC')
     
-    # Base sort
-    order_by_clause = f"ORDER BY {sort_column} {sort_direction}"
-    # Add secondary sort for song name
-    if sort_by == 'song_name':
-        order_by_clause += ", artist_list ASC"
-    elif sort_by == 'artist_name':
-        order_by_clause += ", S.Title ASC"
-        
-    # This subquery calculates the listen count for each song
-    listen_count_subquery = """
-        #(SELECT COUNT(*) FROM "plays" P WHERE P.SongID = S.SongID) AS listencount
-    """
-    
     base_query = f"""
         SELECT 
             S.SongID, 
             S.Title AS song_name, 
             COALESCE(STRING_AGG(DISTINCT A.Name, ',' ORDER BY A.Name), '') AS artist_list,
             COALESCE(STRING_AGG(DISTINCT AL.Name, ',' ORDER BY AL.Name), '') AS album_list,
-            COALESCE(STRING_AGG(DISTINCT G.GenreType, ',' ORDER BY G.GenreType), '') AS genre_list,
+            COALESCE(STRING_AGG(DISTINCT G.GenreType, ',' ORDER BY G.GenreType), '') AS genre_list, 
             (SELECT COUNT(*) FROM "plays" P WHERE P.SongID = S.SongID) AS listencount, 
             S.Length, 
             S.ReleaseDate
@@ -367,36 +358,43 @@ def search_songs(search_term, search_type, sort_by, sort_order):
         LEFT JOIN genres G ON H.GenreID = G.GenreID
     """
 
-    #where_clause = ""
     params = ()
-    search_pattern = f"%{search_term}%" # ILIKE is case-insensitive
+    where_clause = ""
 
-    if search_type == 'song':
-        where_clause = "WHERE S.Title ILIKE %s"
-        params = (search_pattern,)
-    elif search_type == 'artist':
-        where_clause = """
-            WHERE EXISTS(
-                SELECT 1
-                FROM performs P2
-                JOIN artist A2 ON P2.ArtistID = A2.ArtistID
-                WHERE P2.SongID = S.SongID AND A2.Name ILIKE %s)
-        """
-        params = (search_pattern,)
-    elif search_type == 'album':
-        where_clause = "WHERE AL.Name ILIKE %s"
-        params = (search_pattern,)
-    elif search_type == 'genre':
-        where_clause = """
-            WHERE EXISTS(
-                SELECT 1
-                FROM has H2
-                JOIN genres G2 ON H2.GenreID = G2.GenreID
-                WHERE H2.SongID = S.SongID AND G2.GenreType ILIKE %s)
-        """
-        params = (search_pattern,)
-    else:
-        return [] # Invalid search type
+    if search_term and search_type:
+        search_pattern = f"%{search_term}%"
+        if search_type == 'song':
+            where_clause = "WHERE S.Title ILIKE %s"
+            params = (search_pattern,)
+        elif search_type == 'artist':
+            where_clause = """
+                WHERE EXISTS(
+                    SELECT 1
+                    FROM performs P2
+                    JOIN artist A2 ON P2.ArtistID = A2.ArtistID
+                    WHERE P2.SongID = S.SongID AND A2.Name ILIKE %s)
+            """
+            params = (search_pattern,)
+        elif search_type == 'album':
+            where_clause = """
+                WHERE EXISTS(
+                    SELECT 1
+                    FROM contains C2
+                    JOIN album AL2 ON C2.AlbumID = AL2.AlbumID
+                    WHERE C2.SongID = S.SongID AND AL2.Name ILIKE %s
+                )
+            """
+            params = (search_pattern,)
+        elif search_type == 'genre':
+            where_clause = """
+                WHERE EXISTS(
+                    SELECT 1
+                    FROM has H2
+                    JOIN genres G2 ON H2.GenreID = G2.GenreID
+                    WHERE H2.SongID = S.SongID AND G2.GenreType ILIKE %s)
+            """
+            params = (search_pattern,)
+
 
     group_by_clause = """
         GROUP BY 
@@ -405,7 +403,29 @@ def search_songs(search_term, search_type, sort_by, sort_order):
             S.Length,
             S.ReleaseDate
     """
+
+    if not search_term and not search_type:
+        order_by_clause = """
+            ORDER BY 
+                S.Title ASC,
+                COALESCE(STRING_AGG(DISTINCT A.Name, ',' ORDER BY A.Name), '') ASC
+        """
+    else:
+        order_by_clause = f"ORDER BY {sort_column} {sort_direction}"
+        print(sort_by)
+        if sort_by == 'song_name':
+            order_by_clause += ', artist_list ASC'
+        elif sort_by == 'artist_name':
+            order_by_clause += ', S.Title ASC'
+        elif sort_by == 'genre_name':
+            order_by_clause = f"ORDER BY SPLIT_PART(COALESCE(STRING_AGG(DISTINCT G.GenreType, ',' ORDER BY G.GenreType), ''), ',', 1) {sort_direction}"
+        elif sort_by == 'song.releasedate':
+            print("SDFKJSOHFOI")
+            order_by_clause = f"ORDER BY releasedate {sort_direction}"
+
     sql = f"{base_query} {where_clause} {group_by_clause} {order_by_clause}"
+    print(sql)
+    print(params)
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
