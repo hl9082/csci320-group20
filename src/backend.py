@@ -1,13 +1,12 @@
 '''
 Author: Huy Le (hl9082)
 Co-authors: Jason Ting, Iris Li, Raymond Lee
- Group: 20
- Course: CSCI 320
- Filename: backend.py
+Group: 20
+Course: CSCI 320
+Filename: backend.py
 Description: 
 This module contains all the functions that interact with the database.
-          It serves as the data access layer, separating SQL logic from the
-          web application's routing logic.
+It serves as the data access layer, separating SQL logic from the web application's routing logic.
 '''
 from datetime import datetime  # Used to generate timestamps for creation and last access dates.
 from db_connector import get_db_connection  # Imports the connection manager from our connector file.
@@ -112,11 +111,11 @@ def get_collection_details(user_id, collection_title):
    
     sql_songs = """
         SELECT 
-            S.SongID, S.Title AS SongTitle, S.Length, S.ReleaseDate,
-            A.Name AS ArtistName,
-            AL.Name AS AlbumTitle, AL.AlbumID,
-            G.GenreType AS GenreName,
-            R.Rating
+        S.SongID, S.Title AS SongTitle, S.Length, S.ReleaseDate,
+        A.Name AS ArtistName,
+        AL.Name AS AlbumTitle, AL.AlbumID,
+        G.GenreType AS GenreName,
+        R.Rating
         FROM "consists_of" CO
         JOIN "song" S ON S.SongID = CO.SongID
         LEFT JOIN "performs" P ON S.SongID = P.SongID
@@ -473,7 +472,7 @@ def get_all_users_to_follow(user_id):
     """
     sql = """
         SELECT U.UserID, U.Username, U.Email,
-               CASE WHEN F.Follower IS NOT NULL THEN true ELSE false END as is_following
+        CASE WHEN F.Follower IS NOT NULL THEN true ELSE false END as is_following
         FROM "users" U
         LEFT JOIN "follows" F ON U.UserID = F.Followee AND F.Follower = %s
         WHERE U.UserID != %s
@@ -494,7 +493,7 @@ def search_users_by_email(user_id, email_term):
     """
     sql = """
         SELECT U.UserID, U.Username, U.Email,
-               CASE WHEN F.Follower IS NOT NULL THEN true ELSE false END as is_following
+        CASE WHEN F.Follower IS NOT NULL THEN true ELSE false END as is_following
         FROM "users" U
         LEFT JOIN "follows" F ON U.UserID = F.Followee AND F.Follower = %s
         WHERE U.UserID != %s AND U.Email ILIKE %s

@@ -1,12 +1,11 @@
 '''
- Author : Huy Le (hl9082)
- Co authors: Jason Ting, Iris Li, Raymond Lee
- Course: CSCI-320
- Group: 20
- Filename: diagnose_db.py
- Purpose: This is a read-only diagnostic script to inspect the exact column
-         names of the "user" table in the remote database. This helps resolve
-          case-sensitivity issues.
+Author : Huy Le (hl9082)
+Co authors: Jason Ting, Iris Li, Raymond Lee
+Course: CSCI-320
+Group: 20
+Filename: diagnose_db.py
+Purpose: This is a read-only diagnostic script to inspect the exact column names of the 
+"user" table in the remote database. This helps resolve case-sensitivity issues.
 
 '''
 
