@@ -319,7 +319,7 @@ def remove_song_from_collection(user_id, collection_title, song_id):
         print(f"Failed to remove song from collection: {e}")
         return False
 
-def search_songs(search_term, search_type, sort_by, sort_order):
+def search_songs(user_id, search_term, search_type, sort_by, sort_order):
     """
     Searches for songs based on various criteria and sorting options.
     Schema-Compliant: Uses LEFT JOINs and dynamically
@@ -346,7 +346,7 @@ def search_songs(search_term, search_type, sort_by, sort_order):
             COALESCE(STRING_AGG(DISTINCT A.Name, ',' ORDER BY A.Name), '') AS artist_list,
             COALESCE(STRING_AGG(DISTINCT AL.Name, ',' ORDER BY AL.Name), '') AS album_list,
             COALESCE(STRING_AGG(DISTINCT G.GenreType, ',' ORDER BY G.GenreType), '') AS genre_list, 
-            (SELECT COUNT(*) FROM "plays" P WHERE P.SongID = S.SongID) AS listencount, 
+            (SELECT COUNT(*) FROM "plays" P WHERE P.SongID = S.SongID AND P.UserID = %s) AS listencount, 
             S.Length, 
             S.ReleaseDate
         FROM song S
@@ -358,14 +358,14 @@ def search_songs(search_term, search_type, sort_by, sort_order):
         LEFT JOIN genres G ON H.GenreID = G.GenreID
     """
 
-    params = ()
+    params = [user_id]
     where_clause = ""
 
     if search_term and search_type:
         search_pattern = f"%{search_term}%"
         if search_type == 'song':
             where_clause = "WHERE S.Title ILIKE %s"
-            params = (search_pattern,)
+            params.append(search_pattern,)
         elif search_type == 'artist':
             where_clause = """
                 WHERE EXISTS(
@@ -374,7 +374,7 @@ def search_songs(search_term, search_type, sort_by, sort_order):
                     JOIN artist A2 ON P2.ArtistID = A2.ArtistID
                     WHERE P2.SongID = S.SongID AND A2.Name ILIKE %s)
             """
-            params = (search_pattern,)
+            params.append(search_pattern,)
         elif search_type == 'album':
             where_clause = """
                 WHERE EXISTS(
@@ -384,7 +384,7 @@ def search_songs(search_term, search_type, sort_by, sort_order):
                     WHERE C2.SongID = S.SongID AND AL2.Name ILIKE %s
                 )
             """
-            params = (search_pattern,)
+            params.append(search_pattern,)
         elif search_type == 'genre':
             where_clause = """
                 WHERE EXISTS(
@@ -393,7 +393,7 @@ def search_songs(search_term, search_type, sort_by, sort_order):
                     JOIN genres G2 ON H2.GenreID = G2.GenreID
                     WHERE H2.SongID = S.SongID AND G2.GenreType ILIKE %s)
             """
-            params = (search_pattern,)
+            params.append(search_pattern,)
 
 
     group_by_clause = """
@@ -412,7 +412,6 @@ def search_songs(search_term, search_type, sort_by, sort_order):
         """
     else:
         order_by_clause = f"ORDER BY {sort_column} {sort_direction}"
-        print(sort_by)
         if sort_by == 'song_name':
             order_by_clause += ', artist_list ASC'
         elif sort_by == 'artist_name':
@@ -420,12 +419,10 @@ def search_songs(search_term, search_type, sort_by, sort_order):
         elif sort_by == 'genre_name':
             order_by_clause = f"ORDER BY SPLIT_PART(COALESCE(STRING_AGG(DISTINCT G.GenreType, ',' ORDER BY G.GenreType), ''), ',', 1) {sort_direction}"
         elif sort_by == 'song.releasedate':
-            print("SDFKJSOHFOI")
             order_by_clause = f"ORDER BY releasedate {sort_direction}"
 
     sql = f"{base_query} {where_clause} {group_by_clause} {order_by_clause}"
-    print(sql)
-    print(params)
+
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
