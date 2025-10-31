@@ -115,12 +115,15 @@ def get_collection_details(user_id, collection_title):
    
     sql_songs = """
         SELECT 
-            S.SongID, S.Title AS SongTitle, S.Length, S.ReleaseDate,
-            A.Name AS ArtistName,
-            AL.Name AS AlbumTitle, AL.AlbumID,
-            G.GenreType AS GenreName,
-            R.Rating
-        FROM "consists_of" CO
+            S.SongID, 
+            S.Title AS SongTitle, 
+            S.Length, 
+            S.ReleaseDate,
+            COALESCE(STRING_AGG(DISTINCT A.Name, ',' ORDER BY A.Name), '') AS artist_list,
+            COALESCE(STRING_AGG(DISTINCT AL.Name, ',' ORDER BY AL.Name), '') AS album_list,
+            COALESCE(STRING_AGG(DISTINCT G.GenreType, ',' ORDER BY G.GenreType), '') AS genre_list,
+            MAX(R.Rating) AS Rating
+        FROM "consists_of" AS CO
         JOIN "song" S ON S.SongID = CO.SongID
         LEFT JOIN "performs" P ON S.SongID = P.SongID
         LEFT JOIN "artist" A ON P.ArtistID = A.ArtistID
@@ -130,6 +133,7 @@ def get_collection_details(user_id, collection_title):
         LEFT JOIN "genres" G ON H.GenreID = G.GenreID
         LEFT JOIN "rates" R ON S.SongID = R.SongID AND R.UserID = %s
         WHERE CO.UserID = %s AND CO.Title = %s
+        GROUP BY S.SongID, S.Title, S.Length, S.ReleaseDate, AL.Name, AL.AlbumID
         ORDER BY S.Title
     """
     try:
