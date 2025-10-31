@@ -1,13 +1,13 @@
 '''
- Author: Huy Le (hl9082)
- Co-authors: Jason Ting, Iris Li, Raymond Lee
- Group: 20
- Course: CSCI 320
- Filename: db_connector.py 
- Purpose: 
- This module centralizes the database connection logic. It handles
-          establishing an SSH tunnel to starbug.cs.rit.edu and connecting to the
-          PostgreSQL database. It is the single source of truth for all DB connections.
+Author: Huy Le (hl9082)
+Co-authors: Jason Ting, Iris Li, Raymond Lee
+Group: 20
+Course: CSCI 320
+Filename: db_connector.py 
+Purpose: 
+This module centralizes the database connection logic. It handles establishing an SSH tunnel 
+to starbug.cs.rit.edu and connecting to the PostgreSQL database. 
+It is the single source of truth for all DB connections.
 
 '''
 
