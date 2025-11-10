@@ -1,0 +1,29 @@
+{% extends 'layout.html' %}
+
+{% block title %}User Profile{% endblock %}
+
+{% block page_title %}User Profile{% endblock %}
+
+{% block content %}
+<div class="text-white">
+    <div class="mb-4">
+        <p class="font-bold">Collections: {{ profile_data.collection_count }}</p>
+    </div>
+    <div class="mb-4">
+        <p class="font-bold">Followers: {{ profile_data.followers_count }}</p>
+    </div>
+    <div class="mb-4">
+        <p class="font-bold">Following: {{ profile_data.following_count }}</p>
+    </div>
+    <div>
+        <h2 class="text-xl font-bold mb-2">Top 10 Artists</h2>
+        <ul class="list-disc pl-5">
+            {% for artist in profile_data.top_artists %}
+            <li>{{ artist.name }} ({{ artist.play_count }} plays)</li>
+            {% else %}
+            <li>No artist data available.</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}
