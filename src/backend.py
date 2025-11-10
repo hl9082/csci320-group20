@@ -581,3 +581,42 @@ def unfollow_user(follower_id, followee_id):
     except Exception as e:
         print(f"Failed to unfollow user: {e}")
         return False
+
+def get_user_profile_data(user_id):
+    """
+    Gathers all data for the user profile page.
+    """
+    profile_data = {}
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                # Get collection count
+                curs.execute('SELECT COUNT(*) AS count FROM "collection" WHERE UserID = %s', (user_id,))
+                profile_data['collection_count'] = curs.fetchone()['count']
+
+                # Get followers count
+                curs.execute('SELECT COUNT(*) AS count FROM "follows" WHERE Followee = %s', (user_id,))
+                profile_data['followers_count'] = curs.fetchone()['count']
+
+                # Get following count
+                curs.execute('SELECT COUNT(*) AS count FROM "follows" WHERE Follower = %s', (user_id,))
+                profile_data['following_count'] = curs.fetchone()['count']
+
+                # Get top 10 artists by play count
+                sql_top_artists = """
+                    SELECT A.Name, COUNT(*) as play_count
+                    FROM plays P
+                    JOIN song S ON P.SongID = S.SongID
+                    JOIN performs PRF ON S.SongID = PRF.SongID
+                    JOIN artist A ON PRF.ArtistID = A.ArtistID
+                    WHERE P.UserID = %s
+                    GROUP BY A.Name
+                    ORDER BY play_count DESC
+                    LIMIT 10;
+                """
+                curs.execute(sql_top_artists, (user_id,))
+                profile_data['top_artists'] = curs.fetchall()
+        return profile_data
+    except Exception as e:
+        print(f"Error getting user profile data: {e}")
+        return None

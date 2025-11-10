@@ -394,7 +394,7 @@ def follow_user_route():
     if followee_id:
         backend.follow_user(session['user_id'], followee_id)
         flash("User followed.", 'success')
-    
+   
     return redirect(request.referrer or url_for('search_users'))
 
 @app.route('/unfollow', methods=['POST'])
@@ -411,6 +411,22 @@ def unfollow_user_route():
         flash("User unfollowed.", 'info')
 
     return redirect(request.referrer or url_for('search_users'))
+
+@app.route('/profile')
+def profile():
+    """
+    Displays the user's profile page with their stats.
+    """
+    if not is_logged_in():
+        return redirect(url_for('login'))
+
+    profile_data = backend.get_user_profile_data(session['user_id'])
+
+    if not profile_data:
+        flash('Could not retrieve profile data.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    return render_template('profile.html', profile_data=profile_data)
 
 # --- Main Entry Point ---
 
