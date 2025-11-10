@@ -604,7 +604,7 @@ def get_user_profile_data(user_id):
 
                 # Get top 10 artists by play count
                 sql_top_artists = """
-                    SELECT A.Name, COUNT(P.PlayID) as play_count
+                    SELECT A.Name, COUNT(*) as play_count
                     FROM plays P
                     JOIN song S ON P.SongID = S.SongID
                     JOIN performs PRF ON S.SongID = PRF.SongID
