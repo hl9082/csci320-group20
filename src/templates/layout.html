@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- This block sets the browser tab title -->
     <title>{% block title %}Music App{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
@@ -18,12 +18,17 @@
         }
     </script>
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #111827; /* bg-gray-900 */
+        }
+        .table-striped tbody tr:nth-of-type(odd) {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
     </style>
 </head>
 <body class="h-full">
     <div class="min-h-full">
-        <!-- Navigation Bar -->
         <nav class="bg-gray-800">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="flex h-16 items-center justify-between">
@@ -39,10 +44,8 @@
                                 <a href="{{ url_for('collections') }}" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">My Collections</a>
                                 <a href="{{ url_for('search_users') }}" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Find Users</a>
                                 <a href="{{ url_for('profile') }}" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">User Profile</a>
-                                <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Popular Songs</a>
-                                <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Friends' Picks</a>
-                                <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Top Genres</a>
-                                <a href="#" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">For You</a>
+                                <a href="{{ url_for('popular_songs') }}" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Popular Songs</a>
+                                <a href="{{ url_for('top_genres') }}" class="text-gray-300 hover:bg-gray-700 hover:text-white rounded-md px-3 py-2 text-sm font-medium">Top Genres</a>
                             </div>
                         </div>
                         {% endif %}
@@ -59,34 +62,28 @@
             </div>
         </nav>
 
-        <!-- Page Header -->
-        <header class="bg-gray-800 shadow-inner shadow-gray-900/20">
+        <header class="bg-white shadow">
             <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-                <h1 class="text-3xl font-bold tracking-tight text-white">
-                    <!-- BEGIN FIX: Renamed this block to page_title -->
+                <h1 class="text-3xl font-bold tracking-tight text-gray-900">
                     {% block page_title %}{% endblock %}
-                    <!-- END FIX -->
                 </h1>
             </div>
         </header>
 
-        <!-- Main Content -->
-        <main class="bg-gray-900">
+        <main>
             <div class="mx-auto max-w-7xl py-6 sm:px-6 lg:px-8">
-                <!-- Flashed Messages -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
                         <div class="mb-4">
                             {% for category, message in messages %}
-                                <div class="{% if category == 'danger' %} bg-red-800 border-red-900 text-red-100 {% elif category == 'success' %} bg-green-800 border-green-900 text-green-100 {% else %} bg-blue-800 border-blue-900 text-blue-100 {% endif %} border-l-4 p-4 rounded-md" role="alert">
+                                <div class="{% if category == 'danger' %} bg-red-100 border-red-400 text-red-700 {% elif category == 'success' %} bg-green-100 border-green-400 text-green-700 {% else %} bg-blue-100 border-blue-400 text-blue-700 {% endif %} border-l-4 p-4" role="alert">
                                     <p>{{ message }}</p>
                                 </div>
                             {% endfor %}
                         </div>
                     {% endif %}
                 {% endwith %}
-
-                <!-- Content Block -->
+                
                 {% block content %}{% endblock %}
             </div>
         </main>
