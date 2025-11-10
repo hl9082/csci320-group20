@@ -3,64 +3,80 @@
 {% block title %}Popular Songs{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h1 class="mb-4">Popular Songs</h1>
+<div class="container mx-auto mt-4 text-white">
+    <h1 class="mb-4 text-3xl font-bold">Popular Songs</h1>
 
-    <div class="row">
-        <div class="col-md-6">
-            <h2>Top 50 Most Popular Songs (Last 30 Days)</h2>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Title</th>
-                        <th>Artist(s)</th>
-                        <th>Play Count</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for song in top_50_songs %}
-                    <tr>
-                        <td>{{ loop.index }}</td>
-                        <td>{{ song.song_name }}</td>
-                        <td>{{ song.artist_list }}</td>
-                        <td>{{ song.play_count }}</td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="4">No popular songs found.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        <div class="col-md-6">
-            <h2>Top 50 Most Popular Songs (Followed Users)</h2>
-            <table class="table table-striped">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Title</th>
-                        <th>Artist(s)</th>
-                        <th>Play Count</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for song in top_50_followed_songs %}
-                    <tr>
-                        <td>{{ loop.index }}</td>
-                        <td>{{ song.song_name }}</td>
-                        <td>{{ song.artist_list }}</td>
-                        <td>{{ song.play_count }}</td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="4">No popular songs found from followed users.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+    <div class="flex space-x-4 mb-4">
+        <button id="showTop50" class="px-4 py-2 bg-gray-700 rounded-xl shadow-lg hover:bg-gray-600 transition-all transform hover:-translate-y-1 text-white focus:outline-none">Top 50 (Last 30 Days)</button>
+        <button id="showFollowed" class="px-4 py-2 bg-gray-700 rounded-xl shadow-lg hover:bg-gray-600 transition-all transform hover:-translate-y-1 text-white focus:outline-none">Top 50 (Followed Users)</button>
+    </div>
+
+    <div id="top50Table">
+        <h2 class="text-2xl font-semibold mb-2">Top 50 Most Popular Songs (Last 30 Days)</h2>
+        <table class="w-full text-left">
+            <thead>
+                <tr class="border-b border-gray-700">
+                    <th class="px-4 py-2">#</th>
+                    <th class="px-4 py-2">Title</th>
+                    <th class="px-4 py-2">Artist(s)</th>
+                    <th class="px-4 py-2">Play Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for song in top_50_songs %}
+                <tr class="border-t border-gray-800">
+                    <td class="px-4 py-2">{{ loop.index }}</td>
+                    <td class="px-4 py-2">{{ song.song_name }}</td>
+                    <td class="px-4 py-2">{{ song.artist_list }}</td>
+                    <td class="px-4 py-2">{{ song.play_count }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-4 py-2 text-center">No popular songs found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div id="followedTable" class="hidden">
+        <h2 class="text-2xl font-semibold mb-2 mt-6">Top 50 Most Popular Songs (Followed Users)</h2>
+        <table class="w-full text-left">
+            <thead>
+                <tr class="border-b border-gray-700">
+                    <th class="px-4 py-2">#</th>
+                    <th class="px-4 py-2">Title</th>
+                    <th class="px-4 py-2">Artist(s)</th>
+                    <th class="px-4 py-2">Play Count</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for song in top_50_followed_songs %}
+                <tr class="border-t border-gray-800">
+                    <td class="px-4 py-2">{{ loop.index }}</td>
+                    <td class="px-4 py-2">{{ song.song_name }}</td>
+                    <td class="px-4 py-2">{{ song.artist_list }}</td>
+                    <td class="px-4 py-2">{{ song.play_count }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" class="px-4 py-2 text-center">No popular songs found from followed users.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
 </div>
+
+<script>
+    document.getElementById('showTop50').addEventListener('click', function() {
+        document.getElementById('top50Table').classList.remove('hidden');
+        document.getElementById('followedTable').classList.add('hidden');
+    });
+
+    document.getElementById('showFollowed').addEventListener('click', function() {
+        document.getElementById('top50Table').classList.add('hidden');
+        document.getElementById('followedTable').classList.remove('hidden');
+    });
+</script>
 {% endblock %}
