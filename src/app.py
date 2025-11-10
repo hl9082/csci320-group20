@@ -428,6 +428,32 @@ def profile():
 
     return render_template('profile.html', profile_data=profile_data)
 
+
+@app.route('/popular_songs')
+def popular_songs():
+    """
+    Displays the top 50 most popular songs.
+    """
+    if not is_logged_in():
+        return redirect(url_for('login'))
+
+    top_50_songs = backend.get_top_50_popular_songs()
+    top_50_followed_songs = backend.get_top_50_popular_songs_from_followed_users(session['user_id'])
+
+    return render_template('popular_songs.html', top_50_songs=top_50_songs, top_50_followed_songs=top_50_followed_songs)
+
+@app.route('/top_genres')
+def top_genres():
+    """
+    Displays the top 5 most popular genres of the month.
+    """
+    if not is_logged_in():
+        return redirect(url_for('login'))
+
+    top_5_genres = backend.get_top_5_genres_of_the_month()
+
+    return render_template('top_genres.html', top_5_genres=top_5_genres)
+
 # --- Main Entry Point ---
 
 if __name__ == '__main__':

@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+
+{% block title %}Popular Songs{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Popular Songs</h1>
+
+    <div class="row">
+        <div class="col-md-6">
+            <h2>Top 50 Most Popular Songs (Last 30 Days)</h2>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Title</th>
+                        <th>Artist(s)</th>
+                        <th>Play Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for song in top_50_songs %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ song.song_name }}</td>
+                        <td>{{ song.artist_list }}</td>
+                        <td>{{ song.play_count }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4">No popular songs found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="col-md-6">
+            <h2>Top 50 Most Popular Songs (Followed Users)</h2>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Title</th>
+                        <th>Artist(s)</th>
+                        <th>Play Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for song in top_50_followed_songs %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ song.song_name }}</td>
+                        <td>{{ song.artist_list }}</td>
+                        <td>{{ song.play_count }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4">No popular songs found from followed users.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

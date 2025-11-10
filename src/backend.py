@@ -582,6 +582,87 @@ def unfollow_user(follower_id, followee_id):
         print(f"Failed to unfollow user: {e}")
         return False
 
+def get_top_50_popular_songs():
+    """
+    Finds the top 50 most popular songs in the last 30 days.
+    """
+    sql = """
+        SELECT
+            S.SongID,
+            S.Title AS song_name,
+            COALESCE(STRING_AGG(DISTINCT A.Name, ',' ORDER BY A.Name), '') AS artist_list,
+            COUNT(P.SongID) AS play_count
+        FROM "plays" P
+        JOIN "song" S ON P.SongID = S.SongID
+        LEFT JOIN "performs" PRF ON S.SongID = PRF.SongID
+        LEFT JOIN "artist" A ON PRF.ArtistID = A.ArtistID
+        WHERE P.PlayDate >= NOW() - INTERVAL '30 days'
+        GROUP BY S.SongID, S.Title
+        ORDER BY play_count DESC
+        LIMIT 50;
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql)
+                return curs.fetchall()
+    except Exception as e:
+        print(f"Error getting top 50 popular songs: {e}")
+        return []
+
+def get_top_50_popular_songs_from_followed_users(user_id):
+    """
+    Finds the top 50 most popular songs among users followed by the current user.
+    """
+    sql = """
+        SELECT
+            S.SongID,
+            S.Title AS song_name,
+            COALESCE(STRING_AGG(DISTINCT A.Name, ',' ORDER BY A.Name), '') AS artist_list,
+            COUNT(P.SongID) AS play_count
+        FROM "plays" P
+        JOIN "song" S ON P.SongID = S.SongID
+        LEFT JOIN "performs" PRF ON S.SongID = PRF.SongID
+        LEFT JOIN "artist" A ON PRF.ArtistID = A.ArtistID
+        WHERE P.UserID IN (SELECT Followee FROM "follows" WHERE Follower = %s)
+        GROUP BY S.SongID, S.Title
+        ORDER BY play_count DESC
+        LIMIT 50;
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql, (user_id,))
+                return curs.fetchall()
+    except Exception as e:
+        print(f"Error getting top 50 popular songs from followed users: {e}")
+        return []
+
+def get_top_5_genres_of_the_month():
+    """
+    Finds the top 5 most popular genres of the month.
+    """
+    sql = """
+        SELECT
+            G.GenreType,
+            COUNT(*) as play_count
+        FROM "plays" P
+        JOIN "has" H ON P.SongID = H.SongID
+        JOIN "genres" G ON H.GenreID = G.GenreID
+        WHERE P.PlayDate >= DATE_TRUNC('month', NOW())
+        GROUP BY G.GenreType
+        ORDER BY play_count DESC
+        LIMIT 5;
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as curs:
+                curs.execute(sql)
+                return curs.fetchall()
+    except Exception as e:
+        print(f"Error getting top 5 genres of the month: {e}")
+        return []
+
 def get_user_profile_data(user_id):
     """
     Gathers all data for the user profile page.
