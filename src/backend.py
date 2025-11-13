@@ -640,16 +640,23 @@ def get_top_50_popular_songs_from_followed_users(user_id):
 
 def get_top_5_genres_of_the_month():
     """
-    Finds the top 5 most popular genres of the month.
+    Finds the top 5 most popular genres of the month across all users.
     """
     sql = """
+        WITH song_plays AS (
+            SELECT
+                SongID,
+                COUNT(*) as song_play_count
+            FROM "plays"
+            WHERE PlayDate >= DATE_TRUNC('month', NOW())
+            GROUP BY SongID
+        )
         SELECT
             G.GenreType,
-            COUNT(*) as play_count
-        FROM "plays" P
-        JOIN "has" H ON P.SongID = H.SongID
-        JOIN "genres" G ON H.GenreID = G.GenreID
-        WHERE P.PlayDate >= DATE_TRUNC('month', NOW())
+            SUM(sp.song_play_count) AS play_count
+        FROM "genres" G
+        JOIN "has" H ON G.GenreID = H.GenreID
+        JOIN song_plays sp ON H.SongID = sp.SongID
         GROUP BY G.GenreType
         ORDER BY play_count DESC
         LIMIT 5;
@@ -701,3 +708,227 @@ def get_user_profile_data(user_id):
     except Exception as e:
         print(f"Error getting user profile data: {e}")
         return None
+
+def get_recommended_songs(user_id):
+
+    """
+
+    Generates personalized song recommendations for a user based on their play history
+
+    (top artists and genres) and the play history of users they follow. It also considers song ratings.
+
+    """
+
+    # This SQL query is a multi-step process to generate recommendations.
+
+    sql = """
+
+        -- Step 1: Define several Common Table Expressions (CTEs) to gather preference data.
+
+        WITH 
+
+        -- Get the top 10 most played artists for the current user.
+
+        user_top_artists AS (
+
+            SELECT PRF.ArtistID
+
+            FROM plays P
+
+            JOIN performs PRF ON P.SongID = PRF.SongID
+
+            WHERE P.UserID = %s -- Parameter for the current user's ID
+
+            GROUP BY PRF.ArtistID
+
+            ORDER BY COUNT(*) DESC
+
+            LIMIT 10
+
+        ),
+
+        -- Get the top 5 most played genres for the current user.
+
+        user_top_genres AS (
+
+            SELECT H.GenreID
+
+            FROM plays P
+
+            JOIN has H ON P.SongID = H.SongID
+
+            WHERE P.UserID = %s -- Parameter for the current user's ID
+
+            GROUP BY H.GenreID
+
+            ORDER BY COUNT(*) DESC
+
+            LIMIT 5
+
+        ),
+
+        -- Get the top 10 most played artists from all users that the current user follows.
+
+        followed_top_artists AS (
+
+            SELECT PRF.ArtistID
+
+            FROM plays P
+
+            JOIN performs PRF ON P.SongID = PRF.SongID
+
+            -- Filter plays to only include users followed by the current user.
+
+            WHERE P.UserID IN (SELECT Followee FROM follows WHERE Follower = %s) -- Parameter for the current user's ID
+
+            GROUP BY PRF.ArtistID
+
+            ORDER BY COUNT(*) DESC
+
+            LIMIT 10
+
+        ),
+
+        -- Get the top 5 most played genres from all users that the current user follows.
+
+        followed_top_genres AS (
+
+            SELECT H.GenreID
+
+            FROM plays P
+
+            JOIN has H ON P.SongID = H.SongID
+
+            -- Filter plays to only include users followed by the current user.
+
+            WHERE P.UserID IN (SELECT Followee FROM follows WHERE Follower = %s) -- Parameter for the current user's ID
+
+            GROUP BY H.GenreID
+
+            ORDER BY COUNT(*) DESC
+
+            LIMIT 5
+
+        ),
+
+        -- Step 2: Create a pool of recommended songs based on the preferences gathered above.
+
+        recommended_pool AS (
+
+            -- Select songs performed by the top artists (user's and followed users').
+
+            SELECT S.SongID
+
+            FROM song S
+
+            JOIN performs PRF ON S.SongID = PRF.SongID
+
+            WHERE PRF.ArtistID IN (SELECT ArtistID FROM user_top_artists)
+
+            OR PRF.ArtistID IN (SELECT ArtistID FROM followed_top_artists)
+
+            
+
+            UNION -- Combine with the next set of songs, removing duplicates.
+
+            
+
+            -- Select songs belonging to the top genres (user's and followed users').
+
+            SELECT S.SongID
+
+            FROM song S
+
+            JOIN has H ON S.SongID = H.SongID
+
+            WHERE H.GenreID IN (SELECT GenreID FROM user_top_genres)
+
+            OR H.GenreID IN (SELECT GenreID FROM followed_top_genres)
+
+        )
+
+        -- Step 3: Select final song details, calculate popularity and rating, and rank them.
+
+        SELECT
+
+            S.SongID, -- The ID of the song.
+
+            S.Title AS song_name, -- The title of the song.
+
+            COALESCE(STRING_AGG(DISTINCT A.Name, ',' ORDER BY A.Name), '') AS artist_list, -- A comma-separated list of artists for the song.
+
+            COUNT(P.SongID) AS play_count, -- The total number of times the song has been played by anyone.
+
+            COALESCE(AVG(R.Rating), 0) AS avg_rating -- The average rating of the song, defaulting to 0 if it has no ratings.
+
+        FROM song S
+
+        -- Join with the pool of recommended songs to filter our list.
+
+        JOIN recommended_pool RP ON S.SongID = RP.SongID
+
+        -- Left join to get play counts for each song.
+
+        LEFT JOIN plays P ON S.SongID = P.SongID
+
+        -- Left join to get artist information.
+
+        LEFT JOIN performs PRF ON S.SongID = PRF.SongID
+
+        LEFT JOIN artist A ON PRF.ArtistID = A.ArtistID
+
+        -- Left join to get rating information.
+
+        LEFT JOIN rates R ON S.SongID = R.SongID
+
+        -- Filter out songs that the current user has already played in the last 90 days.
+
+        WHERE S.SongID NOT IN (
+
+            SELECT SongID FROM plays WHERE UserID = %s AND PlayDate >= NOW() - INTERVAL '90 days' -- Parameter for the current user's ID
+
+        )
+
+        -- Group by song to aggregate artist names, play counts, and ratings.
+
+        GROUP BY S.SongID, S.Title
+
+        -- Order the results by a weighted score. Popularity (play_count) is weighted more heavily than average rating.
+
+        ORDER BY (COUNT(P.SongID) * 0.7 + COALESCE(AVG(R.Rating), 0) * 0.3) DESC
+
+        -- Limit the final output to the top 50 recommendations.
+
+        LIMIT 50;
+
+    """
+
+    try:
+
+        # Establish a connection to the database.
+
+        with get_db_connection() as conn:
+
+            # Create a cursor to execute SQL commands.
+
+            with conn.cursor() as curs:
+
+                # Execute the SQL query with the user_id passed as parameters for all placeholders.
+
+                curs.execute(sql, (user_id, user_id, user_id, user_id, user_id))
+
+                # Fetch all the resulting rows from the query.
+
+                return curs.fetchall()
+
+    except Exception as e:
+
+        # If any error occurs during the database operation, print the error.
+
+        print(f"Error getting recommended songs: {e}")
+
+        # Return an empty list to prevent the application from crashing.
+
+        return []
+
+
