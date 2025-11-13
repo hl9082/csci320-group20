@@ -1,0 +1,37 @@
+{% extends "layout.html" %}
+
+{% block title %}For You{% endblock %}
+
+{% block page_title %}For You{% endblock %}
+
+{% block content %}
+<div class="container mx-auto mt-4 text-white">
+    <h1 class="mb-4 text-3xl font-bold">Personalized Recommendations</h1>
+
+    <div>
+        <h2 class="text-2xl font-semibold mb-2">Songs You Might Like</h2>
+        <table class="w-full text-left">
+            <thead>
+                <tr class="border-b border-gray-700">
+                    <th class="px-4 py-2">#</th>
+                    <th class="px-4 py-2">Title</th>
+                    <th class="px-4 py-2">Artist(s)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for song in recommended_songs %}
+                <tr class="border-t border-gray-800">
+                    <td class="px-4 py-2">{{ loop.index }}</td>
+                    <td class="px-4 py-2">{{ song.song_name }}</td>
+                    <td class="px-4 py-2">{{ song.artist_list }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="3" class="px-4 py-2 text-center">No recommendations available at the moment. Listen to more songs to get recommendations.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

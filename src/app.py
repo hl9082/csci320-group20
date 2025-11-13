@@ -454,6 +454,18 @@ def top_genres():
 
     return render_template('top_genres.html', top_5_genres=top_5_genres)
 
+@app.route('/for_you')
+def for_you():
+    """
+    Displays personalized song recommendations for the user.
+    """
+    if not is_logged_in():
+        return redirect(url_for('login'))
+
+    recommended_songs = backend.get_recommended_songs(session['user_id'])
+
+    return render_template('for_you.html', recommended_songs=recommended_songs)
+
 # --- Main Entry Point ---
 
 if __name__ == '__main__':
