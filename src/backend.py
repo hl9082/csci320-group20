@@ -640,16 +640,23 @@ def get_top_50_popular_songs_from_followed_users(user_id):
 
 def get_top_5_genres_of_the_month():
     """
-    Finds the top 5 most popular genres of the month.
+    Finds the top 5 most popular genres of the month across all users.
     """
     sql = """
+        WITH song_plays AS (
+            SELECT
+                SongID,
+                COUNT(*) as song_play_count
+            FROM "plays"
+            WHERE PlayDate >= DATE_TRUNC('month', NOW())
+            GROUP BY SongID
+        )
         SELECT
             G.GenreType,
-            COUNT(*) as play_count
-        FROM "plays" P
-        JOIN "has" H ON P.SongID = H.SongID
-        JOIN "genres" G ON H.GenreID = G.GenreID
-        WHERE P.PlayDate >= DATE_TRUNC('month', NOW())
+            SUM(sp.song_play_count) AS play_count
+        FROM "genres" G
+        JOIN "has" H ON G.GenreID = H.GenreID
+        JOIN song_plays sp ON H.SongID = sp.SongID
         GROUP BY G.GenreType
         ORDER BY play_count DESC
         LIMIT 5;
