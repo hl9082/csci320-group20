@@ -102,6 +102,7 @@ def get_db_connection():
         Exception: Re-raises any other exception that occurs while getting a connection.
     """
     if not db_pool:
+        print("DBPOOL ERROR")
         raise ConnectionError("Database pool is not available. Check startup logs for errors.")
     
     conn = None
@@ -123,3 +124,43 @@ def get_db_connection():
 
 
 
+def initialize_db_pool():
+    global db_pool, server
+
+    if not all([CS_USERNAME, CS_PASSWORD, DB_NAME]):
+        print("❌ Missing database credentials. Please check your .env file.")
+        return False
+
+    print("Configuring SSH tunnel to starbug.cs.rit.edu...")
+
+    try:
+        # Create SSH tunnel
+        server = SSHTunnelForwarder(
+            ('starbug.cs.rit.edu', 22),
+            ssh_username=CS_USERNAME,
+            ssh_password=CS_PASSWORD,
+            remote_bind_address=('127.0.0.1', 5432)
+        )
+
+        print("Establishing SSH tunnel...")
+        server.start()
+        print(f"SSH tunnel established on local port {server.local_bind_port}.")
+
+        # Create connection pool
+        dsn = f"dbname='{DB_NAME}' user='{CS_USERNAME}' password='{CS_PASSWORD}' host='localhost' port='{server.local_bind_port}'"
+        print("Creating psycopg2 connection pool...")
+        db_pool = ThreadedConnectionPool(minconn=1, maxconn=10, dsn=dsn, cursor_factory=DictCursor)
+
+        # Test the connection
+        with db_pool.getconn() as conn:
+            print("✅ Database connection successful. Pool is ready.")
+        db_pool.putconn(conn)  # Return the connection immediately to the pool
+
+        return True
+
+    except Exception as e:
+        print(f"❌ Failed to initialize database connection: {e}")
+        if server and server.is_active:
+            server.stop()
+        db_pool = None
+        return False
