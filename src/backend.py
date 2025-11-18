@@ -652,11 +652,12 @@ def get_top_5_genres_of_the_month():
             GROUP BY SongID
         )
         SELECT
-            G.GenreType,
-            SUM(sp.song_play_count) AS play_count
-        FROM "genres" G
-        JOIN "has" H ON G.GenreID = H.GenreID
-        JOIN song_plays sp ON H.SongID = sp.SongID
+            G.GenreType as genretype,
+            COUNT(*) as play_count
+        FROM "plays" P
+        JOIN "has" H ON P.SongID = H.SongID
+        JOIN "genres" G ON H.GenreID = G.GenreID
+        WHERE P.PlayDate >= DATE_TRUNC('month', NOW())
         GROUP BY G.GenreType
         ORDER BY play_count DESC
         LIMIT 5;
@@ -664,6 +665,7 @@ def get_top_5_genres_of_the_month():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
+                curs.execute("SET max_parallel_workers_per_gather = 0;")
                 curs.execute(sql)
                 return curs.fetchall()
     except Exception as e:
