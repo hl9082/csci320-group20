@@ -644,7 +644,7 @@ def get_top_5_genres_of_the_month():
     """
     sql = """
         SELECT
-            G.GenreType,
+            G.GenreType as genretype,
             COUNT(*) as play_count
         FROM "plays" P
         JOIN "has" H ON P.SongID = H.SongID
@@ -657,6 +657,7 @@ def get_top_5_genres_of_the_month():
     try:
         with get_db_connection() as conn:
             with conn.cursor() as curs:
+                curs.execute("SET max_parallel_workers_per_gather = 0;")
                 curs.execute(sql)
                 return curs.fetchall()
     except Exception as e:
